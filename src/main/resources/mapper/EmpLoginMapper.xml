@@ -1,0 +1,185 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="store.yd2team.common.mapper.EmpLoginMapper">
+	
+    <select id="selectByLogin">
+        SELECT  a.emp_acct_id,
+                a.vend_id,
+                a.emp_id,
+                a.login_id,
+                a.login_pwd,
+                a.st,
+                a.fail_cnt,
+                a.lock_dttm,
+                a.last_login,
+                a.yn,
+                a.crea_dt,
+                a.crea_by,
+                a.updt_dt,
+                a.updt_by,
+                a.temp_yn,
+                a.mas_yn,
+                e.nm        AS empNm,
+                e.dept_id   AS deptId,
+                d.dept_nm   AS deptNm,
+                v.bizcnd,    
+                v.addr,  
+                e.cttpc,
+                v.hp,
+                e.email,
+                e.proof_photo,
+                jc.code_nm AS jobNm     
+        FROM TB_EMP_ACCT a
+        LEFT JOIN TB_EMP e
+               ON a.EMP_ID = e.EMP_ID
+              AND a.VEND_ID = e.VEND_ID
+        LEFT JOIN TB_CODE jc
+		       ON jc.grp_id  = 'k'
+		      AND jc.code_id = e.clsf
+		      AND (jc.vend_id = e.vend_id OR jc.vend_id IS NULL)
+        LEFT JOIN TB_DEPT d
+               ON e.DEPT_ID = d.DEPT_ID
+              AND e.VEND_ID = d.VEND_ID
+        LEFT JOIN TB_VEND v
+               ON a.VEND_ID = v.VEND_ID
+        WHERE a.VEND_ID  = #{vendId}
+        AND a.LOGIN_ID = #{loginId}
+    </select>
+    
+    <update id="updateLoginSuccess">
+        UPDATE tb_emp_acct
+           SET fail_cnt   = 0,
+               last_login = SYSDATE,
+               updt_dt    = SYSDATE,
+               updt_by    = #{updtBy}
+         WHERE emp_acct_id = #{empAcctId}
+    </update>
+
+    <update id="updateLoginFail">
+        UPDATE tb_emp_acct
+           SET fail_cnt = fail_cnt + 1,
+               st       = CASE
+                            WHEN fail_cnt + 1 >= #{maxFailCnt}
+                            THEN 'r2'
+                            ELSE st
+                          END,
+               lock_dttm = CASE
+                             WHEN fail_cnt + 1 >= #{maxFailCnt}
+                             THEN SYSDATE
+                             ELSE lock_dttm
+                           END,
+               updt_dt   = SYSDATE,
+               updt_by   = #{updtBy}
+         WHERE emp_acct_id = #{empAcctId}
+    </update>
+
+    <update id="unlock">
+        UPDATE tb_emp_acct
+           SET st        = 'r1',
+               fail_cnt  = 0,
+               lock_dttm = NULL,
+               updt_dt   = SYSDATE,
+               updt_by   = #{updtBy}
+         WHERE emp_acct_id = #{empAcctId}
+    </update>
+    
+    <select id="selectRoleIdsByEmpAcctId" resultType="string">
+        SELECT ur.role_id
+          FROM tb_user_role ur
+         WHERE ur.emp_acct_id = #{empAcctId}
+    </select>
+    
+    <select id="selectAuthCodesByEmpAcctId" resultType="string">
+        SELECT DISTINCT a.auth_code
+          FROM tb_auth a
+          JOIN tb_user_role ur
+            ON a.role_id = ur.role_id
+         WHERE ur.emp_acct_id = #{empAcctId}
+    </select>
+    
+    <select id="selectByEmpAcctId" parameterType="string">
+	    SELECT  a.emp_acct_id,
+	            a.vend_id,
+	            a.emp_id,
+	            a.login_id,
+	            a.login_pwd,
+	            a.st,
+	            a.fail_cnt,
+	            a.lock_dttm,
+	            a.last_login,
+	            a.yn,
+	            a.crea_dt,
+	            a.crea_by,
+	            a.updt_dt,
+	            a.updt_by,
+	            a.temp_yn,
+	            a.mas_yn,
+	            e.nm        AS empNm,
+	            e.dept_id   AS deptId,
+	            d.dept_nm   AS deptNm,
+	            v.bizcnd,
+	            v.addr,
+	            e.cttpc,
+	            v.hp,
+	            e.email,
+	            e.proof_photo,
+	            jc.code_nm AS jobNm
+	    FROM TB_EMP_ACCT a
+	    LEFT JOIN TB_EMP e
+	           ON a.EMP_ID = e.EMP_ID
+	          AND a.VEND_ID = e.VEND_ID
+	    LEFT JOIN TB_DEPT d
+	           ON e.DEPT_ID = d.DEPT_ID
+	          AND e.VEND_ID = d.VEND_ID
+	    LEFT JOIN TB_CODE jc
+               ON jc.grp_id  = 'k'
+              AND jc.code_id = e.clsf
+              AND (jc.vend_id = e.vend_id OR jc.vend_id IS NULL)
+	    LEFT JOIN TB_VEND v
+	           ON a.VEND_ID = v.VEND_ID
+	    WHERE a.EMP_ACCT_ID = #{empAcctId}
+	</select>
+	
+	<select id="selectOprtrByLogin" resultType="store.yd2team.common.service.EmpAcctVO">
+	  SELECT
+	      oa.oprtr_acct_id AS emp_acct_id,
+	      'SYSTEM'         AS vend_id,      -- 운영자 테이블에 vend_id 없음 :contentReference[oaicite:6]{index=6}
+	      oa.oprtr_acct_id AS emp_id,
+	      oa.login_id      AS login_id,
+	      oa.login_pwd     AS login_pwd,
+	      'r1'             AS st,
+	      0                AS fail_cnt,
+	      NULL             AS lock_dttm,
+	      NULL             AS last_login,
+	      'e1'             AS yn,
+	      'e2'             AS temp_yn,
+	      'e2'             AS mas_yn,
+	      '운영자'           AS empNm
+	  FROM tb_oprtr_acct oa
+	  WHERE oa.login_id = #{loginId}
+	</select>
+	
+	<select id="selectAllActiveMenus"
+        resultType="store.yd2team.common.dto.MenuAuthDto">
+	  SELECT
+	      m.menu_id,
+	      m.menu_nm,
+	      m.menu_url,
+	      m.module_id,
+	      m.prnt_menu_id,
+	      m.sort_ord,
+	      'e1' AS sel_yn,
+	      'e1' AS ins_yn,
+	      'e1' AS updt_yn,
+	      'e1' AS del_yn
+	  FROM tb_menu m
+	  WHERE m.yn = 'e1'
+	</select>
+	
+	<select id="countByLoginId" resultType="int">
+	    SELECT COUNT(*)
+	    FROM tb_oprtr_acct
+	    WHERE login_id = #{loginId}
+	</select>
+    	
+</mapper>

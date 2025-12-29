@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml"
+	xmlns:th="http://www.thymeleaf.org"
+	xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+	layout:decorate="~{layout}">
+<head>
+<meta charset="UTF-8">
+<title>edc.html</title>
+
+<style>
+.form-select {
+	color: #000 !important;
+}
+/* 추가 CSS */
+.readonly-input[readonly] {
+	background-color: #e9ecef; /* Bootstrap 기본 disabled 색상 */
+	cursor: not-allowed; /* 마우스 커서도 입력 불가 느낌 */
+}
+
+.stIsShow {
+	display: none;
+}
+</style>
+</head>
+<body layout:fragment="content">
+	<div class="row">
+		<div class="col-md-12">
+			<div class="card mb-3">
+				<!-- 카드 헤더 : 제목 + 초기화/조회 버튼 -->
+				<div class="card-header with-actions">
+					<div class="card-header-left">
+						<h5 class="card-title">조회</h5>
+						
+					</div>
+					<div class="card-header-right">
+						<button type="button" class="btn btn-dark">초기화</button>
+						<button id="joHoe" type="button" class="btn btn-outline-dark">조회</button>
+					</div>
+				</div>
+				<div class="card-body">
+
+					<div class="row mb-2">
+						<div class="col-md-3">
+							<label class="form-label">교육명</label> <input type="text"
+								id="edcNm" class="form-control edcJohoe" placeholder="Value">
+						</div>
+
+						<div class="col-md-3">
+							<label class="form-label">교육구분</label> <select id="edcTy"
+								class="form-select edcJohoe">
+								<option value="">전체</option>
+								<option value="법정의무교육">법정의무교육</option>
+								<option value="직무교육">직무교육</option>
+								<option value="소양교육">소양교육</option>
+								<option value="사내교육">사내교육</option>
+							</select>
+						</div>
+						<div class="col-md-3">
+							<label class="form-label">연도</label> <select id="edcDt"
+								class="form-select edcJohoe"></select>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+	<div class="row">
+		<!-- 검색조건 -->
+		<div class="col-md-6">
+			<!-- 사원목록 -->
+			<div class="card" style="height: 580px;">
+				<!-- 카드 헤더 : 제목 + 초기화/조회 버튼 -->
+				<div class="card-header with-actions">
+					<div class="card-header-left">
+						<h5 class="card-title">교육 목록 테이블</h5>
+					</div>
+				</div>
+				<div class="card-body">
+
+					<div id="toastGrid" style="margin: 20px;"></div>
+				</div>
+			</div>
+		</div>
+		<!-- 우측 패널 -->
+		<div class="col-md-6">
+			<!-- 기본정보 -->
+			<div class="card mb-3">
+				<!-- 카드 헤더 : 제목 + 초기화/조회 버튼 -->
+				<div class="card-header with-actions">
+					<div class="card-header-left">
+						<h5 class="card-title">교육 기본 정보</h5>
+					</div>
+					<div class="card-header-right">
+						<!-- <button class="btn btn-outline-dark " id="openRegistModal">등록</button> -->
+						<div th:replace="~{fragments/buttons :: saveButton('MENU_HR_003', 'openRegistModal')}"></div>
+						<!-- <button class="btn btn-outline-dark ">삭제</button> -->
+						<!-- 삭제 기능 없음? 버튼 id : del -->
+						<!-- <div th:replace="~{fragments/buttons :: deleteButton('MENU_HR_003', 'del')}"></div> -->
+					</div>
+				</div>
+				<div class="card-body">
+
+
+					<div class="row">
+						<div class="col-md-12">
+							<div class="row mb-2">
+								<div class="col-md-5">
+									<label class="form-label">교육명</label> <input type="text"
+										id="v_edcNm" class="form-control" />
+										<input id="v_edcId" type="text" style="display: none;">
+								</div>
+								<div class="col-md-5">
+									<label class="form-label">교육구분</label> <input type="text"
+										id="v_edcTy" class="form-control" />
+								</div>
+								<div class="col-md-2">
+									<label class="form-label">대상자 수</label> <input id="v_edcCnt"
+										class="form-control" />
+								</div>
+							</div>
+							<div class="row mb-2">								
+								<div class="col-md-4">
+									<label for="userName" class="form-label">등록일</label>
+									<div class="input-group date js-date-single">
+										<input type="text"
+											class="form-control datepicker js-date-input"
+											placeholder="날짜 선택"
+											id="v_creaDt"> <span
+											class="input-group-text js-date-icon"> <i
+											class="bi bi-calendar"></i>
+										</span>
+									</div>
+								</div>
+								<div class="col-md-8">
+									<label for="userName" class="form-label">기간</label>
+									<div class="d-flex align-items-center js-date-range">
+
+										<!-- 시작일 -->
+										<div class="input-group date">
+											<input type="text"
+												class="form-control datepicker js-date-range-start"
+												placeholder="시작일"
+												id="v_edcBeginDt"> <span
+												class="input-group-text js-date-range-icon-start"> <i
+												class="bi bi-calendar"></i>
+											</span>
+										</div>
+
+										<span class="mx-1 fw-bold fs-5">~</span>
+
+										<!-- 종료일 -->
+										<div class="input-group date ms-2">
+											<input type="text"
+												class="form-control datepicker js-date-range-end"
+												placeholder="종료일"
+												id="v_edcEndDt"> <span
+												class="input-group-text js-date-range-icon-end"> <i
+												class="bi bi-calendar"></i>
+											</span>
+										</div>
+
+									</div>
+								</div>
+							</div>
+							
+						</div>
+					</div>
+				</div>
+			</div>
+			<!-- 인사정보 -->
+			<div class="card">
+				<!-- 카드 헤더 : 제목 + 초기화/조회 버튼 -->
+				<div class="card-header with-actions">
+					<div class="card-header-left">
+						<h5 class="card-title">대상자 목록</h5>
+					</div>
+				</div>
+				<div class="card-body " style="height: 260px;">
+
+
+					<div id="toastGrid2" style="margin: 20px;"></div>
+
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<!-- 모달 -->
+	<div th:replace="insa/modal/edcRegistModal :: registModal"></div>
+	
+
+	<script>
+	const $yearr = $("#edcDt");   // select 요소 가져오기
+	const currentYear = new Date().getFullYear(); // 현재 연도
+	const startYear = 1980; // 시작 연도
+
+	for (let y = currentYear; y >= startYear; y--) {
+	  const valueDate = y; // 서버로 넘길 값 (yyyy-MM-dd)
+	  
+	  $yearr.append($("<option>", {
+	    value: valueDate, // 실제 전달 값
+	    text: y           // 화면에 표시되는 텍스트 (년도만)
+	  }));
+	}
+
+	$("#joHoe").on("click", function () {
+		let datas = {};
+		$('.edcJohoe').each(function() {
+		    datas[this.id] = $(this).val();
+		});
+		console.log(datas);
+		// jQuery AJAX 호출
+		$.ajax({
+		    url: "/edcJohoe",                // 요청 URL
+		    type: "get",                     // GET 방식 (fetch 코드와 동일)
+		    data: datas
+		})
+		.done((result) => {
+		    console.log(result);
+		    grid.resetData(result);          // 결과를 grid에 반영
+		})
+		.fail((error) => {
+		    console.error(error);
+		    alert("데이터 요청 중 오류 발생");
+		});
+	});
+	
+	
+		
+
+		// Grid 생성
+		const grid = new tui.Grid({
+			el : document.getElementById('toastGrid'),
+			data : [],
+			scrollX : false,
+			scrollY : true,
+			minBodyHeight : 0,
+			autoWidth : true,
+			columns : [ {
+				header : '교육명',
+				name : 'edcNm',
+				sortable : 'true'
+			}, {
+				header : '교육구분',
+				name : 'edcTy'
+			}, {
+				header : '대상인원',
+				name : 'edcCnt',
+				align : 'right'
+			}, {
+				header : '수료율',
+				name : 'compl',
+				align : 'right'
+			}, {
+				header : '등록일',
+				name : 'creaDt',
+				align : 'center',
+				formatter: function({ value }) {
+	                return value ? dateFormat(value, 'yyyy-MM-dd') : '';
+	            }
+			} ],
+			bodyHeight : 440, // 본문 높이 고정
+		});
+		
+		
+		class downloadFunc {
+			  constructor(props) {
+
+			    // 현재 행 데이터 가져오기
+			    const row = props.grid.getRow(props.rowKey);
+
+			    // 미수료일 경우 빈 요소 반환
+			    if (row.complSt === "미수료") {
+			      this.el = document.createElement("div"); // 빈 셀
+			      return;
+			    }
+
+			 // --- 수료일 경우에만 아이콘 표시 ---
+			    const $button = $("<button><i class='fa fa-download'></i></button>").css({
+			      border: "none",
+			      background: "transparent",
+			      cursor: "pointer",
+			      fontSize: "20px",
+			      color: "#333"
+			    });
+
+			    $button.on("click", () => {
+			      const rowKey = props.rowKey;
+			      const row = props.grid.getRow(rowKey);			      
+			      
+			      const fileName = row.complFile;
+			        const $link = $("<a></a>")
+			          .attr("href", fileName)
+			          .attr("download", fileName.split("/").pop())
+			          .appendTo("body");
+
+			        $link[0].click();
+			        $link.remove();
+
+			      
+			    });
+
+			    this.el = $button[0]; // jQuery 객체 → DOM 요소 변환
+			  }
+
+			  getElement() {
+			    return this.el;
+			  }
+			}
+
+
+
+		
+		// Grid2 생성
+		const grid2 = new tui.Grid({
+			el : document.getElementById('toastGrid2'),
+			data : [],
+			scrollX : false,
+			scrollY : true,
+			minBodyHeight : 0,
+			autoWidth : true,
+			columns : [ {
+				header : '사번',
+				name : 'empId',
+				sortable : 'true'
+			}, {
+				header : '이름',
+				name : 'nm'
+			}, {
+				header : '부서',
+				name : 'deptNm'				
+			}, {
+				header : '수료여부',
+				name : 'complSt',
+				align : 'center'
+			}, {
+				header : '수료증파일',
+				name : 'complFile',
+				align : 'center',
+				renderer: downloadFunc
+			} ],
+			bodyHeight : 160, // 본문 높이 고정
+		});
+		
+		/* =====================================================
+		 * 2. 모달 열고/닫기
+		 * ===================================================== */
+		const openBtn = document.getElementById("openRegistModal");
+		const modal   = document.getElementById("registModal");
+		const back    = document.getElementById("registBackdrop");
+		const edcCreateBtn    = document.getElementById("edcCreate");
+
+		function openModal() {
+		  if (!modal || !back) return;
+		  modal.classList.add("show");
+		  modal.style.display = "block";
+		  back.style.display = "block";
+		  grid.refreshLayout();
+		}
+
+		function closeModal() {
+		  if (!modal || !back) return;
+		  modal.classList.remove("show");
+		  modal.style.display = "none";
+		  back.style.display = "none";
+		}
+
+		if (openBtn) {
+		  openBtn.addEventListener("click", openModal);
+		}
+		if (modal) {
+		  modal.addEventListener("click", (event) => {
+		    if (!event.target.closest(".modal-content")) {
+		      closeModal();
+		    }
+		  });
+		}
+		if (edcCreateBtn) {
+			edcCreateBtn.addEventListener("click", (e) =>{
+				let datas = {};
+				$('[id^="m_"]').each(function() {
+				    // this.id에서 앞의 "m_" 제거
+				    let key = this.id.replace(/^m_/, '');
+				    datas[key] = $(this).val();
+				});
+				console.log(datas);
+				
+				// jQuery AJAX - POST 방식으로 JSON 전송
+				 $.ajax({
+				    url: "/edcIdRegist",                 // 요청 URL
+				    type: "post",                      // POST 방식
+				    contentType: "application/json",   
+				    data: JSON.stringify(datas),        // 객체를 JSON 문자열로 변환									
+				})
+				.done((result) => {
+				    console.log(result);
+				    alert("정상 등록되었습니다.");
+				    grid.resetData(result);            // 결과를 grid에 반영
+				})
+				.fail((error) => {
+				    console.error(error);
+				    alert("등록 중 오류 발생");
+				}); 
+				
+				 if (e.target.closest(".modal-content")) {
+					    //closeModal();
+					  }
+			});
+			
+			} //end of if (edcCreateBtn)
+	</script>
+	<script type="module">
+import { bindGridToForm, formToJson } from '/assets/js/teamExportUtil.js';
+
+//그리드 행 클릭 시 상세정보 입력
+grid.on('click', function(ev) {
+    const rowData = grid.getRow(ev.rowKey);
+    if (!rowData) return;
+
+    bindGridToForm(rowData);    
+    
+    const dto = formToJson();  
+    console.log(dto);
+
+	$.ajax({
+		    url: "/edcDetaJohoe",                // 요청 URL
+		    type: "get",                     // GET 방식 (fetch 코드와 동일)
+		    data: dto
+		})
+		.done((result) => {		    
+		    grid2.resetData(result);          // 결과를 grid에 반영
+		})
+		.fail((error) => {
+		    console.error(error);
+		    alert("데이터 요청 중 오류 발생");
+		});
+});
+</script>
+</body>
+
+</html>

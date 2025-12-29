@@ -1,0 +1,1023 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml"
+      xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layout}">
+<head>
+  <meta charset="UTF-8">
+  <title>wkTy</title>
+
+  <!-- ✅ Toast UI 공통 유틸 -->
+  <script src="https://uicdn.toast.com/tui-code-snippet/latest/tui-code-snippet.js"></script>
+
+  <!-- ✅ Date / Time Picker -->
+  <link rel="stylesheet"
+        href="https://uicdn.toast.com/tui.date-picker/latest/tui-date-picker.css">
+  <link rel="stylesheet"
+        href="https://uicdn.toast.com/tui.time-picker/latest/tui-time-picker.css">
+
+  <script src="https://uicdn.toast.com/tui.date-picker/latest/tui-date-picker.js"></script>
+  <script src="https://uicdn.toast.com/tui.time-picker/latest/tui-time-picker.js"></script>
+
+  <!-- ✅ Grid -->
+  <link rel="stylesheet"
+        href="https://uicdn.toast.com/grid/latest/tui-grid.css">
+  <script src="https://uicdn.toast.com/grid/latest/tui-grid.js"></script>
+
+  <style>
+    .wk-panel {
+      border: 1px solid #dedede;
+      border-radius: 18px;
+      padding: 24px 26px;
+      background-color: #fff;
+    }
+    .wk-panel .form-label {
+      font-weight: 500;
+    }
+    .wk-time-range .form-control {
+      height: 36px;
+      padding-top: 4px;
+      padding-bottom: 4px;
+    }
+    .wk-time-range .input-group-text {
+      font-size: 0.85rem;
+      cursor: pointer;
+    }
+    .wk-dot {
+      display: inline-block;
+      margin: 0 8px;
+      font-size: 18px;
+      line-height: 36px;
+    }
+
+    /* ✅ 요일 버튼 조금 키운 버전 */
+    .wk-day-buttons .btn {
+      min-width: 46px;
+      padding: 7px 0;
+      font-size: 0.9rem;
+      border-radius: 0;
+    }
+    .wk-day-buttons .btn:first-child {
+      border-radius: 10px 0 0 10px;
+    }
+    .wk-day-buttons .btn:last-child {
+      border-radius: 0 10px 10px 0;
+    }
+    .wk-day-buttons .btn.selected {
+      background-color: #0d6efd;
+      color: #fff;
+      border-color: #0d6efd;
+    }
+
+    .wk-radio-group {
+      display: flex;
+      align-items: center;
+      gap: 24px;
+      margin-top: 4px;
+    }
+    .wk-radio {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin: 0;
+    }
+    .wk-radio input[type="radio"] {
+      margin: 0;
+    }
+
+    /* ✅ time 인풋 내부 기본 시계 아이콘 제거 (크롬/엣지 등) */
+    input[type="time"]::-webkit-calendar-picker-indicator {
+      display: none;
+    }
+    input[type="time"]::-webkit-inner-spin-button,
+    input[type="time"]::-webkit-clear-button {
+      display: none;
+    }
+
+    /* ===========================
+     * 휴일 기준 탭 스타일 (입체감)
+     * =========================== */
+    .nav-tabs {
+      display: flex;
+      gap: 0;
+      margin-bottom: 0;
+      border-bottom: none !important;
+    }
+
+    .nav-tabs .nav-item {
+      margin-bottom: -1px;
+    }
+
+    .nav-tabs .nav-link {
+      border-radius: 10px 10px 0 0;
+      padding: 8px 20px;
+      background-color: #f7f8fa;
+      color: #a1a6ad;
+      font-weight: 500;
+      border: 1px solid #d1d5db;
+      border-bottom-color: #d1d5db;
+      box-shadow: inset 0 -2px 0 rgba(0,0,0,0.03);
+      transition: background-color 0.15s ease,
+                  color 0.15s ease,
+                  box-shadow 0.15s ease;
+    }
+
+    .nav-tabs .nav-item + .nav-item .nav-link {
+      margin-left: -1px;
+    }
+
+    .nav-tabs .nav-link:not(.active):hover {
+      background-color: #eff1f4;
+      color: #7a7f87;
+    }
+
+    .nav-tabs .nav-link.active {
+      background-color: #ffffff;
+      color: #111111;
+      font-weight: 600;
+      border-color: #d1d5db;
+      border-bottom-color: #ffffff;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.06);
+      z-index: 2;
+    }
+
+    .tab-pane {
+      display: none;
+      margin-top: 0;
+      padding-top: 0;
+    }
+
+    .tab-pane.active {
+      display: block;
+    }
+
+    .card-body > .mt-3 {
+      margin-top: 0 !important;
+    }
+
+    /* ✅ 버튼 영역 공간은 유지하면서 버튼만 안 보이게 */
+    .wk-header-hidden {
+      visibility: hidden;
+    }
+  </style>
+</head>
+<body layout:fragment="content">
+<div class="row">
+
+  <!-- ================== 휴일 기준 관리 ================== -->
+  <div class="col-md-6">
+    <div class="card mb-3">
+      <div class="card-header">
+        <h5 class="card-title">휴일 기준 관리</h5>
+        <!-- ✅ 버튼 영역에 아이디 추가 -->
+        <div class="card-header-right" id="hldyHeaderBtns">
+          <!-- <button class="btn btn-outline-dark" id="btnHldyAdd">행추가</button> -->
+          <div th:replace="~{fragments/buttons :: addRowButton('MENU_HR_010', 'btnHldyAdd')}"></div>
+          <!-- <button class="btn btn-outline-dark" id="btnHldySave">저장</button> -->
+          <div th:replace="~{fragments/buttons :: saveButton('MENU_HR_010', 'btnHldySave')}"></div>
+          <!-- <button class="btn btn-danger" id="btnHldyDel">삭제</button> -->
+          <div th:replace="~{fragments/buttons :: deleteButton('MENU_HR_010', 'btnHldyDel')}"></div>
+        </div>
+      </div>
+      <div class="card-body">
+        <!-- 탭 헤더 -->
+        <ul class="nav nav-tabs" id="hldyTab">
+          <!-- ✅ 첫 번째 탭: 회사 지정 공휴일 (기본 활성) -->
+          <li class="nav-item">
+            <button class="nav-link active" type="button" data-target="#tab-company">
+              회사 지정 공휴일
+            </button>
+          </li>
+          <!-- ✅ 두 번째 탭: 법정 공휴일 -->
+          <li class="nav-item">
+            <button class="nav-link" type="button" data-target="#tab-legal">
+              법정 공휴일
+            </button>
+          </li>
+        </ul>
+
+        <!-- 탭별 Grid 영역 -->
+        <div class="mt-3">
+          <!-- 회사 지정 공휴일 (추가/수정/삭제 가능) -->
+          <div id="tab-company" class="tab-pane active">
+            <div id="gridHldyCompany"></div>
+          </div>
+
+          <!-- 법정 공휴일 (조회 전용) -->
+          <div id="tab-legal" class="tab-pane">
+            <div id="gridHldyLegal"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================== 근무형태 기준 관리 ================== -->
+  <div class="col-md-6">
+    <div class="card mb-3">
+      <div class="card-header mb-3">
+        <h5 class="card-title">근무형태 기준 관리</h5>
+        <div class="card-header-right">
+          <!-- ✅ 버튼에 id 부여 -->
+          <button class="btn btn-dark"          id="btnWkReset">초기화</button>
+          <button class="btn btn-outline-dark"  id="openGuideModal">조회</button>
+          <!-- <button class="btn btn-outline-dark"  id="btnWkSave">저장</button> -->
+          <div th:replace="~{fragments/buttons :: saveButton('MENU_HR_010', 'btnWkSave')}"></div>
+          <!-- <button class="btn btn-danger"        id="btnWkDelete">삭제</button> -->
+          <div th:replace="~{fragments/buttons :: deleteButton('MENU_HR_010', 'btnWkDelete')}"></div>
+        </div>
+      </div>
+
+      <div class="card-body">
+        <div class="wk-panel">
+          <!-- 기준명 / 부서명 -->
+          <div class="row mb-3">
+            <div class="col-6">
+              <label for="stdNm" class="form-label astar">기준명</label>
+              <input type="text" id="stdNm" class="form-control" />
+            </div>
+            <div class="col-6">
+              <label for="deptNm" class="form-label astar">부서명</label>
+              <select id="deptNm" class="form-select">
+                <option value="">선택</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- 출근시간 / 퇴근시간 -->
+          <div class="row mb-4 wk-time-range">
+            <div class="col-5">
+              <label for="startTime" class="form-label astar">출근시간</label>
+              <div class="input-group">
+                <input type="time" id="startTime" class="form-control">
+                <span class="input-group-text" id="startTimeIcon">⏱</span>
+              </div>
+            </div>
+            <div class="col-2 d-flex align-items-end justify-content-center">
+              <span class="wk-dot">~</span>
+            </div>
+            <div class="col-5">
+              <label for="endTime" class="form-label astar">퇴근시간</label>
+              <div class="input-group">
+                <input type="time" id="endTime" class="form-control">
+                <span class="input-group-text" id="endTimeIcon">⏱</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- ✅ 근무유형 라디오/주기 삭제하고, 휴일(요일)만 표시 -->
+          <div class="mb-4">
+            <label class="form-label d-block astar">휴일</label>
+            <div id="weekdaySection" class="wk-day-buttons">
+              <div class="btn-group" role="group" aria-label="weekday">
+                <button type="button" class="btn btn-outline-primary btn-sm" data-day="MON">월</button>
+                <button type="button" class="btn btn-outline-primary btn-sm" data-day="TUE">화</button>
+                <button type="button" class="btn btn-outline-primary btn-sm" data-day="WED">수</button>
+                <button type="button" class="btn btn-outline-primary btn-sm" data-day="THU">목</button>
+                <button type="button" class="btn btn-outline-primary btn-sm" data-day="FRI">금</button>
+                <button type="button" class="btn btn-outline-primary btn-sm" data-day="SAT">토</button>
+                <button type="button" class="btn btn-outline-primary btn-sm" data-day="SUN">일</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- ✅ 기준번호 / 선택 요일 hidden -->
+          <input type="hidden" id="basiNo"           value="">
+          <input type="hidden" id="selectedWeekdays" name="selectedWeekdays" value="">
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ✅ 근무형태 기준 조회 모달 -->
+<div th:replace="~{insa/modal/wkTyModal :: wkTyModal}"></div>
+
+<script>
+/* =====================================================
+ * 1. Grid 공통 옵션
+ * ===================================================== */
+const GridOptions = {
+  bodyHeight: 580,
+  scrollX: false,
+  scrollY: true,
+  rowHeaders: ['checkbox'],
+  columnOptions: {
+    minWidth: 80,
+    resizable: true
+  }
+};
+
+/* =====================================================
+ * ✅ 월일 정렬 함수 (년도 무시)
+ * ===================================================== */
+function sortByMmdd(data) {
+  return data.sort((a, b) => {
+    const aMmdd = (a.hldyMmdd || '').slice(-5); // 2000-01-02 or 01-02 -> 01-02
+    const bMmdd = (b.hldyMmdd || '').slice(-5);
+    return aMmdd.localeCompare(bMmdd);
+  });
+}
+
+/* =====================================================
+ * ✅ 부서 셀렉트 박스 로딩
+ * ===================================================== */
+function loadDeptList() {
+  const mainSelect  = document.getElementById('deptNm');      // 메인
+  const modalSelect = document.getElementById('wkTyDept');    // 모달
+
+  if (!mainSelect && !modalSelect) return;
+
+  // 기본 초기화
+  if (mainSelect)  mainSelect.innerHTML  = '<option value="">선택</option>';
+  if (modalSelect) modalSelect.innerHTML = '<option value="">전체</option>';
+
+  fetch('/insa/edc/inputOption')
+    .then(res => res.json())
+    .then(data => {
+      const deptList = data.dept || [];
+
+      deptList.forEach(dept => {
+        // 메인 페이지
+        if (mainSelect) {
+          const opt1 = document.createElement('option');
+          opt1.value = dept.deptId;
+          opt1.textContent = dept.deptNm;
+          mainSelect.appendChild(opt1);
+        }
+
+        // 모달
+        if (modalSelect) {
+          const opt2 = document.createElement('option');
+          opt2.value = dept.deptId;
+          opt2.textContent = dept.deptNm;
+          modalSelect.appendChild(opt2);
+        }
+      });
+    })
+    .catch(() => {
+      alert('부서 목록을 불러오는 중 오류가 발생했습니다.');
+    });
+}
+
+/* =====================================================
+ * 2. 휴일 Grid 2개 (법정 / 회사)
+ * ===================================================== */
+
+// 법정 공휴일: 조회 전용
+const legalGrid = new tui.Grid({
+  el: document.getElementById('gridHldyLegal'),
+  data: [],
+  bodyHeight: 560,
+  scrollX: false,
+  scrollY: true,
+  rowHeaders: [],
+  columnOptions: {
+    minWidth: 80,
+    resizable: true
+  },
+  columns: [
+    { header: '번호', name: 'hldyNo', hidden: true },
+    { header: '월일', name: 'hldyMmdd', align: 'center' },
+    { header: '휴일명', name: 'hldyNm' },
+    {
+      header: '사용여부',
+      name: 'ynCode',
+      formatter: ({ value }) => value === 'e1' ? '사용' : '미사용'
+    }
+  ]
+});
+
+// 회사 지정 공휴일
+const companyGrid = new tui.Grid({
+  el: document.getElementById('gridHldyCompany'),
+  data: [],
+  ...GridOptions,
+  editingType: 'cell',
+  columns: [
+    { header: '번호', name: 'hldyNo', hidden: true },
+    {
+      header: '월일',
+      name: 'hldyMmdd',
+      align: 'center',
+      editor: { type: 'datePicker', options: { format: 'yyyy-MM-dd', language: 'ko' }},
+      formatter: ({ value }) => value ? value.slice(-5) : ''
+    },
+    { header: '휴일명', name: 'hldyNm', editor: 'text' },
+    {
+      header: '사용여부',
+      name: 'ynCode',
+      editor: { type: 'select', options: { listItems: [
+        { text: '사용', value: 'e1' },
+        { text: '미사용', value: 'e2' }
+      ]}},
+      formatter: ({ value }) => value === 'e1' ? '사용' : '미사용'
+    }
+  ]
+});
+
+/* =====================================================
+ * 3. 탭 전환
+ * ===================================================== */
+const tabBtns = document.querySelectorAll('#hldyTab .nav-link');
+const panes = {
+  '#tab-legal': document.getElementById('tab-legal'),
+  '#tab-company': document.getElementById('tab-company')
+};
+// ✅ 휴일 카드 헤더 버튼 영역
+const hldyHeaderBtns = document.getElementById('hldyHeaderBtns');
+
+tabBtns.forEach(btn => {
+  btn.addEventListener('click', () => {
+    const target = btn.getAttribute('data-target');
+    tabBtns.forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    for (const key in panes) {
+      panes[key].classList.toggle('active', key === target);
+    }
+
+    // ✅ 탭에 따라 버튼 표시/숨김 (공간은 유지)
+    if (target === '#tab-legal') {
+      hldyHeaderBtns.classList.add('wk-header-hidden');
+    } else {
+      hldyHeaderBtns.classList.remove('wk-header-hidden');
+    }
+
+    (target === '#tab-legal' ? legalGrid : companyGrid).refreshLayout();
+  });
+});
+
+function getActiveHldyGrid() {
+  const active = document.querySelector('#hldyTab .nav-link.active');
+  const type = active.getAttribute('data-target');
+  return type === '#tab-legal'
+    ? { grid: legalGrid, type: 'LEGAL' }
+    : { grid: companyGrid, type: 'COMPANY' };
+}
+
+/* =====================================================
+ * 4. 휴일 조회
+ * ===================================================== */
+function loadLegalHldyList() {
+  fetch('/api/hldy/legal/list')
+    .then(res => res.json())
+    .then(list => {
+      let data = list.map(r => ({
+        hldyNo: r.hldyNo,
+        hldyNm: r.hldyNm,
+        hldyMmdd: r.hldyMmdd,
+        ynCode: r.ynCode
+      }));
+      legalGrid.resetData(sortByMmdd(data));
+    });
+}
+
+function loadCompanyHldyList() {
+  fetch('/api/hldy/company/list')
+    .then(res => res.json())
+    .then(list => {
+      let data = list.map(r => ({
+        hldyNo: r.hldyNo,
+        hldyNm: r.hldyNm,
+        hldyMmdd: r.hldyMmdd ? '2000-' + r.hldyMmdd : '',
+        ynCode: r.ynCode
+      }));
+      companyGrid.resetData(sortByMmdd(data));
+    });
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  loadLegalHldyList();
+  loadCompanyHldyList();
+  loadDeptList();   // 🔥 부서 셀렉트 로딩 여기서 호출
+
+  // 초기 상태: 회사 지정 공휴일 탭이므로 버튼 보이도록
+  hldyHeaderBtns.classList.remove('wk-header-hidden');
+});
+
+/* =====================================================
+ * 5. 휴일 CRUD
+ * ===================================================== */
+document.getElementById('btnHldyAdd').onclick = () => {
+  const { grid } = getActiveHldyGrid();
+  grid.prependRow({ hldyNo:null, hldyMmdd:'', hldyNm:'', ynCode:'e1' });
+};
+
+document.getElementById('btnHldyDel').onclick = () => {
+  const { grid } = getActiveHldyGrid();
+  grid.removeRows(grid.getCheckedRowKeys());
+};
+
+document.getElementById('btnHldySave').onclick = () => {
+  const { grid } = getActiveHldyGrid();
+
+  // ✅  현재 편집 중인 셀 값 강제 반영
+  grid.finishEditing();
+  const { createdRows, updatedRows, deletedRows } = grid.getModifiedRows();
+
+  // ✅ 필수값(월일, 휴일명) 유효성 검사
+  const rowsToCheck = [...createdRows, ...updatedRows];
+  const hasInvalid = rowsToCheck.some(r => {
+    const mmdd = (r.hldyMmdd || '').toString().trim();
+    const name = (r.hldyNm || '').toString().trim();
+    return !mmdd || !name;
+  });
+
+  if (hasInvalid) {
+    alert('월일과 휴일명은 모두 입력해야 저장할 수 있습니다.');
+    return;
+  }
+
+  function norm(rows) {
+    return rows.map(r => ({
+      hldyNo: r.hldyNo,
+      hldyNm: r.hldyNm?.trim(),
+      hldyMmdd: r.hldyMmdd?.slice(-5),
+      ynCode: r.ynCode || 'e1'
+    }));
+  }
+
+  const payload = {
+    createdRows: norm(createdRows),
+    updatedRows: norm(updatedRows),
+    deletedRows: deletedRows.map(r => ({ hldyNo: r.hldyNo }))
+  };
+
+  fetch('/api/hldy/company/save', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  })
+  .then(res => {
+    if (!res.ok) throw new Error();
+    alert('저장 완료');
+    loadCompanyHldyList();
+  })
+  .catch(() => alert('저장 실패'));
+};
+
+/* =====================================================
+ * 6 ~ 16 : 근무형태 기준 관련 JS (요일만 사용)
+ * ===================================================== */
+
+// 전역 변수
+let wkTyGrid = null;          // 모달 그리드
+let currentBasiNo = null;     // 선택된 기준번호 (상세 폼용)
+
+const stdNmInput     = document.getElementById('stdNm');
+const deptNmSelect   = document.getElementById('deptNm');
+const startTimeInput = document.getElementById('startTime');
+const endTimeInput   = document.getElementById('endTime');
+const basiNoInput    = document.getElementById('basiNo');
+
+/* 요일 버튼 + hidden 값 */
+const dayButtons      = document.querySelectorAll('#weekdaySection button');
+const hiddenWeekdays  = document.getElementById('selectedWeekdays');
+
+function updateHiddenWeekdays() {
+  const selectedDays = [];
+  dayButtons.forEach(btn => {
+    if (btn.classList.contains('selected')) {
+      selectedDays.push(btn.dataset.day);  // MON, TUE ...
+    }
+  });
+  hiddenWeekdays.value = selectedDays.join(',');
+}
+
+dayButtons.forEach(btn => {
+  btn.addEventListener('click', () => {
+    btn.classList.toggle('selected');
+    updateHiddenWeekdays();
+  });
+});
+
+/* 시간 아이콘 → time picker 열기 */
+function bindTimeIcon(inputId, iconId) {
+  const input = document.getElementById(inputId);
+  const icon  = document.getElementById(iconId);
+  if (!input || !icon) return;
+
+  icon.addEventListener('click', () => {
+    if (typeof input.showPicker === 'function') {
+      input.showPicker();
+    } else {
+      input.focus();
+    }
+  });
+}
+
+bindTimeIcon('startTime', 'startTimeIcon');
+bindTimeIcon('endTime',   'endTimeIcon');
+
+/* 폼 초기화 */
+function resetWorkTypeForm() {
+  currentBasiNo      = null;
+  basiNoInput.value  = '';
+  stdNmInput.value   = '';
+  deptNmSelect.value = '';
+
+  startTimeInput.value = '';
+  endTimeInput.value   = '';
+
+  dayButtons.forEach(btn => btn.classList.remove('selected'));
+  updateHiddenWeekdays();
+}
+
+document.getElementById('btnWkReset').addEventListener('click', resetWorkTypeForm);
+
+/* 모달용 Grid 초기화 */
+function initWkTyGrid() {
+  const gridEl = document.getElementById('gridWkTy');
+  if (!gridEl || wkTyGrid) return;
+
+  wkTyGrid = new tui.Grid({
+    el: gridEl,
+    data: [],
+    bodyHeight: 260,
+    scrollX: false,
+    scrollY: true,
+    rowHeaders: [],
+    columns: [
+      {
+        header: '선택',
+        name: 'select',
+        width: 60,
+        align: 'center',
+        // ✅ rowKey 대신 기준번호(basiNo)를 value로 사용
+        formatter: ({ row }) =>
+          `<input type="radio" name="wkTySelect" value="${row.basiNo}">`
+      },
+      { header: '기준명',   name: 'basiNm' },
+      { header: '부서명',   name: 'deptNm',  width: 80, align: 'center' },
+      { header: '출근시간', name: 'atdcTm',  width: 90, align: 'center' },
+      { header: '퇴근시간', name: 'afwkTm',  width: 90, align: 'center' },
+      /* ✅ 휴일 컬럼: 선택 요일 표시(예: 토,일) */
+      { header: '휴일', name: 'hldyDesc' }
+    ]
+  });
+}
+
+/* 기준 목록 조회 → 모달 그리드에 바인딩 (검색조건 적용 버전) */
+function loadWkTyList() {
+  if (!wkTyGrid) initWkTyGrid();
+
+  const basiNmInput = document.getElementById('wkTySrchBasiNm');
+  const deptSel     = document.getElementById('wkTyDept');
+
+  const basiNm = basiNmInput ? basiNmInput.value.trim() : '';
+  const deptId = deptSel ? (deptSel.value || '') : '';
+
+  const params = new URLSearchParams();
+  if (basiNm) params.append('basiNm', basiNm);
+  if (deptId) params.append('deptId', deptId);
+
+  const url = '/insa/hldyWkBasi/list' + (params.toString() ? ('?' + params.toString()) : '');
+
+  fetch(url)
+    .then(res => res.json())
+    .then(list => {
+      const data = list.map(r => {
+        const at = r.atdcTm ? ('' + r.atdcTm).substring(11, 16) : '';
+        const af = r.afwkTm ? ('' + r.afwkTm).substring(11, 16) : '';
+
+        return {
+          basiNo:   r.basiNo,
+          basiNm:   r.basiNm,
+          deptNm:   r.deptNm,
+          atdcTm:   at,
+          afwkTm:   af,
+          hldyDesc: ''   // ✅ 휴일 문자열은 아래에서 따로 채움
+        };
+      });
+      wkTyGrid.resetData(data);
+
+      /* ✅ 각 기준별 요일 조회해서 "토,일" 형식으로 셀에 세팅 */
+      const dayLabelMap = {
+        MON: '월',
+        TUE: '화',
+        WED: '수',
+        THU: '목',
+        FRI: '금',
+        SAT: '토',
+        SUN: '일'
+      };
+
+      list.forEach((r, idx) => {
+        if (!r.basiNo) return;
+        const row = wkTyGrid.getRowAt(idx);
+        if (!row) return;
+        const rowKey = row.rowKey;
+
+        fetch('/insa/hldyWkBasi/day/list?basiNo=' + r.basiNo)
+          .then(res => res.json())
+          .then(dayList => {
+            const txt = (dayList || [])
+              .map(d => dayLabelMap[d.dayNm] || d.dayNm)
+              .join(',');
+            wkTyGrid.setValue(rowKey, 'hldyDesc', txt);
+          })
+          .catch(() => {
+            // 에러 시에는 그냥 비워둠
+          });
+      });
+    });
+}
+
+/* 모달 열기/닫기 + 선택 */
+// 🔹 팀유틸 closeModal()에서 쓸 수 있게 전역 modal/back 세팅
+const openBtn = document.getElementById('openGuideModal');
+const modal   = document.getElementById('wkTyModal');
+const back    = document.getElementById('wkTyBackdrop');
+
+function openModal() {
+  if (!modal || !back) return;
+
+  modal.classList.add('show');
+  modal.style.display = 'block';
+  back.style.display  = 'block';
+
+  initWkTyGrid();
+  loadWkTyList();
+  if (wkTyGrid && wkTyGrid.refreshLayout) {
+    wkTyGrid.refreshLayout();
+  }
+}
+
+openBtn?.addEventListener('click', openModal);
+
+// ✅ 백드롭 클릭 시: teamUtil 의 closeModal 사용
+back?.addEventListener('click', () => {
+  if (typeof closeModal === 'function') {
+    closeModal();
+  } else {
+    // 혹시 teamUtil이 로드 안 된 경우 fallback
+    modal.classList.remove('show');
+    modal.style.display = 'none';
+    back.style.display  = 'none';
+  }
+});
+
+/* ✅ 여기 추가: teamUtil.js 방식의 바깥 클릭 닫기 */
+if (typeof modal !== 'undefined' && modal) {
+  modal.addEventListener('click', (event) => {
+    if (!event.target.closest('.modal-content')) {
+      if (typeof closeModal === 'function') {
+        closeModal();
+      } else {
+        modal.classList.remove('show');
+        modal.style.display = 'none';
+        if (back) back.style.display = 'none';
+      }
+    }
+  });
+}
+
+// 🔎 모달 검색 버튼 / 엔터 / 부서변경 → 검색
+document.getElementById('btnWkTySearch')?.addEventListener('click', () => {
+  loadWkTyList();
+});
+
+document.getElementById('wkTySrchBasiNm')?.addEventListener('keydown', e => {
+  if (e.key === 'Enter') {
+    loadWkTyList();
+  }
+});
+
+document.getElementById('wkTyDept')?.addEventListener('change', () => {
+  loadWkTyList();
+});
+
+document.getElementById('btnWkTySelect')?.addEventListener('click', () => {
+  if (!wkTyGrid) return;
+  const checked = document.querySelector('input[name="wkTySelect"]:checked');
+  if (!checked) {
+    alert('기준을 선택하세요.');
+    return;
+  }
+
+  // ✅ rowKey로 getRow 하지 않고, 라디오에 실린 basiNo를 그대로 사용
+  const selectedBasiNo = checked.value;
+  if (!selectedBasiNo) {
+    alert('기준 정보가 올바르지 않습니다.');
+    return;
+  }
+
+  loadWorkTypeDetail(selectedBasiNo);
+
+  if (typeof closeModal === 'function') {
+    closeModal();
+  } else {
+    modal.classList.remove('show');
+    modal.style.display = 'none';
+    if (back) back.style.display = 'none';
+  }
+});
+
+// 혹시 모달 내부에 닫기 버튼(id="btnWkTyClose") 있으면 거기도 연결
+document.getElementById('btnWkTyClose')?.addEventListener('click', () => {
+  if (typeof closeModal === 'function') {
+    closeModal();
+  } else {
+    modal.classList.remove('show');
+    modal.style.display = 'none';
+    if (back) back.style.display = 'none';
+  }
+});
+
+/* 기준 상세 조회 + 요일 조회 → 폼 바인딩 */
+function loadWorkTypeDetail(basiNo) {
+  if (!basiNo) return;
+
+  fetch('/insa/hldyWkBasi/detail?basiNo=' + basiNo)
+    .then(res => res.json())
+    .then(vo => {
+      currentBasiNo     = vo.basiNo;
+      basiNoInput.value = vo.basiNo || '';
+
+      stdNmInput.value   = vo.basiNm || '';
+      deptNmSelect.value = vo.deptId || '';
+
+      const at = vo.atdcTm ? ('' + vo.atdcTm).substring(11, 16) : '';
+      const af = vo.afwkTm ? ('' + vo.afwkTm).substring(11, 16) : '';
+      startTimeInput.value = at;
+      endTimeInput.value   = af;
+
+      return fetch('/insa/hldyWkBasi/day/list?basiNo=' + basiNo);
+    })
+    .then(res => res.json())
+    .then(dayList => {
+      dayButtons.forEach(btn => {
+        const cd = btn.dataset.day;
+        const exists = dayList.some(d => d.dayNm === cd);
+        if (exists) btn.classList.add('selected');
+        else        btn.classList.remove('selected');
+      });
+      updateHiddenWeekdays();
+    })
+    .catch(() => {
+      alert('근무형태 기준 조회 중 오류가 발생했습니다.');
+    });
+}
+
+/* 기준 저장 */
+document.getElementById('btnWkSave').addEventListener('click', () => {
+  const basiNo = basiNoInput.value ? Number(basiNoInput.value) : null;
+  const basiNm = (stdNmInput.value || '').trim();
+  const deptId = deptNmSelect.value || '';
+  const atdcTm = startTimeInput.value || '';
+  const afwkTm = endTimeInput.value   || '';
+
+  if (!basiNm) {
+    alert('기준명을 입력하세요.');
+    return;
+  }
+  if (!deptId) {
+    alert('부서를 선택하세요.');
+    return;
+  }
+  if (!atdcTm || !afwkTm) {
+    alert('출근/퇴근시간을 모두 입력하세요.');
+    return;
+  }
+
+  const dayList = (hiddenWeekdays.value || '')
+    .split(',')
+    .map(s => s.trim())
+    .filter(s => s.length > 0);
+
+  /* ✅ 추가: 요일을 하나도 선택하지 않았으면 저장 불가 */
+  if (dayList.length === 0) {
+    alert('휴일을 한 개 이상 선택하세요.');
+    return;
+  }
+
+  const payload = {
+    basiNo,
+    deptId,
+    basiNm,
+    atdcTm,
+    afwkTm,
+    dayList
+  };
+
+  fetch('/insa/hldyWkBasi/save', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  })
+  .then(res => {
+    if (!res.ok) throw new Error();
+    return res.json();
+  })
+  .then(resBody => {
+    if (resBody.result !== 'SUCCESS') {
+      throw new Error();
+    }
+    alert('저장되었습니다.');
+    if (resBody.basiNo) {
+      currentBasiNo     = resBody.basiNo;
+      basiNoInput.value = resBody.basiNo;
+    }
+  })
+  .catch(() => {
+    alert('저장 중 오류가 발생했습니다.');
+  });
+});
+
+/* 기준 삭제 */
+document.getElementById('btnWkDelete').addEventListener('click', () => {
+  const basiNo = basiNoInput.value ? Number(basiNoInput.value) : null;
+  if (!basiNo) {
+    alert('삭제할 기준이 선택되지 않았습니다.');
+    return;
+  }
+  if (!confirm('선택한 근무형태 기준을 삭제하시겠습니까?')) {
+    return;
+  }
+
+  fetch('/insa/hldyWkBasi/delete?basiNo=' + basiNo, {
+    method: 'DELETE'
+  })
+  .then(res => {
+    if (!res.ok) throw new Error();
+    return res.json();
+  })
+  .then(resBody => {
+    if (resBody.result !== 'SUCCESS') {
+      throw new Error();
+    }
+    alert('삭제되었습니다.');
+    resetWorkTypeForm();
+  })
+  .catch(() => {
+    alert('삭제 중 오류가 발생했습니다.');
+  });
+});
+</script>
+
+</body>
+</html>
+
+<!-- /templates/insa/modal/wkTyModal.html -->
+<div th:fragment="wkTyModal">
+  <!-- ✅ 모달 배경 -->
+  <div class="modal-backdrop" id="wkTyBackdrop" style="display:none;"></div>
+
+  <!-- ✅ 모달 본체 -->
+  <div class="modal" id="wkTyModal" tabindex="-1" style="display:none;">
+    <div class="modal-dialog modal-dialog-centered" style="--bs-modal-width: 800px;">
+      <div class="modal-content">
+        <div class="modal-body">
+          <h5 class="modal-title mb-3">근무형태기준 조회</h5>
+
+          <div class="row">
+            <div class="col-md-12">
+
+              <!-- 🔎 카드 1 : 검색조건 -->
+              <div class="card border mb-3">
+                <div class="card-header">
+                  <h5 class="card-title">검색조건</h5>
+                  <div class="card-header-right">
+                    <!-- 검색 버튼 -->
+                    <button class="btn btn-outline-dark" id="btnWkTySearch">조회</button>
+                  </div>
+                </div>
+
+                <div class="card-body">
+                  <div class="row mb-3">
+                    <div class="col-md-6">
+                      <label class="form-label">기준명</label>
+                      <input type="text" class="form-control" id="wkTySrchBasiNm">
+                    </div>
+                    <div class="col-md-6">
+                      <label class="form-label">부서명</label>
+                      <select id="wkTyDept" class="form-select">
+                        <option value="">전체</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 📋 카드 2 : 근무형태 기준 목록 그리드 -->
+              <div class="card border">
+                <div class="card-header">
+                  <h5 class="card-title">근무형태 기준 목록</h5>
+                  <div class="card-header-right">
+                    <!-- ✅ 선택 적용 버튼 -->
+                    <button class="btn btn-outline-dark" id="btnWkTySelect">확인</button>
+                  </div>
+                </div>
+                <div class="card-body">
+                  <div id="gridWkTy" class="mt-2"></div>
+                </div>
+              </div>
+
+            </div>
+          </div><!-- /.row -->
+
+        </div><!-- /.modal-body -->
+      </div>
+    </div>
+  </div>
+</div>

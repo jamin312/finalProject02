@@ -1,0 +1,614 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml"
+     xmlns:th="http://www.thymeleaf.org"
+     xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+     layout:decorate="~{layout}">
+<head>
+<meta charset="UTF-8">
+<title>여신 관리</title>
+<style type="text/css">
+/* 그리드 버튼 스타일 */
+.grid-btn {
+   padding: 4px 10px;
+   border: 1px solid #bbb;
+   background-color: #fff;
+   border-radius: 4px;
+   cursor: pointer;
+   font-size: 12px;
+}
+.grid-btn:hover {
+   background-color: #eee;
+}
+
+.ship-hold-badge {
+   display: inline-block;
+   padding: 2px 6px;
+   font-size: 11px;
+   border-radius: 4px;
+   color: #fff;
+   background-color: #343a40; /* 진한 회색 */
+}
+
+.modal-title {
+	font-size: 20px;
+	font-weight: bold;
+}
+
+</style>
+</head>
+<body layout:fragment="content">
+<div class="lock-account-wrapper">
+
+   <!-- 여신 조회 -->
+   <div class="row mb-3">
+       <div class="col-md-12">
+           <div class="card">
+           
+               <!-- 카드 헤더 : 제목 + 초기화/조회 버튼 -->
+               <div class="card-header with-actions">
+                   <div class="card-header-left">
+                       <h5 class="card-title">여신 조회</h5>
+                   </div>
+                   <div class="card-header-right">
+                       <button type="button" class="btn btn-dark" id="creditInit">초기화</button>
+                       <button type="button" class="btn btn-outline-dark" id="searchCredit">조회</button>
+                   </div>
+               </div>
+               
+               <!-- /card-body start -->
+               <div class="card-body">
+                   <div class="row">
+                       <div class="col-md-4">
+                           <label for="autoCustcomId" class="form-label">고객사코드</label>
+                           <div class="position-relative">
+                               <input id="autoCustcomId" type="text" class="form-control" placeholder="고객코드를 입력해주세요" autocomplete="off">
+                               <ul id="autoCustcomIdSuggest" class="list-group position-absolute w-100" style="z-index: 2000;">
+                               </ul>
+                           </div>
+                       </div>
+                       <div class="col-md-4">
+                           <label for="autoCustcomName" class="form-label">고객사명</label>
+                           <div class="position-relative">
+                               <input id="autoCustcomName" type="text" class="form-control" placeholder="고객사명을 입력해주세요" autocomplete="off">
+                               <ul id="autoCustcomNameSuggest" class="list-group position-absolute w-100" style="z-index: 2000;">
+                               </ul>
+                           </div>
+                       </div>
+                   </div><!-- row end -->
+               </div>
+               <!-- /card-body end -->
+           </div>
+       </div>
+   </div>
+   <!-- 여신한도 카드 -->
+   <div class="row">
+       <div class="col-md-12 d-flex">
+           <div class="card w-100 h-100">
+               <!-- 카드 헤더 : 제목 + 버튼 -->
+               <div class="card-header with-actions">
+                   <div class="card-header-left">
+                       <h5 class="card-title">여신한도설정 / 여신현황</h5>
+	                   <div style="margin-top: 1em; font-size: 12px;">
+	                       <span class="badge bg-secondary">※ 사용률(%) = 원금잔액 / 여신한도 × 100</span>
+	                       <span class="ms-2 ship-hold-badge">출하정지</span>
+	                   </div>
+                   </div>
+                   <div class="card-header-right">
+                       <button type="button" class="btn btn-dark" id="limitInit">초기화</button>
+                       <button type="button" class="btn btn-outline-dark" id="saveBtn">저장</button>
+                   </div>
+               </div>
+               <div class="card-body">
+                   <!-- 간단한 범례 -->
+                   <div class="creditGridWrap">
+                       <div id="creditGrid"></div>
+                   </div>
+               </div>
+           </div>
+       </div>
+   </div>
+   <!-- 고객사 상세 모달 -->
+   <div th:replace="business/modal/creditCustModal :: creditModal"></div>
+</div><!-- /.lock-account-wrapper -->
+<script>
+//신용등급에 따라 최대연체개월 바로 보이게
+function getCreditMmByGrad(grade) {
+  if (grade === 'A') return 3;
+  if (grade === 'B') return 2;
+  return 1; // C, D, 기타
+}
+   
+ 
+   // 1. 데이터 (백엔드에서 내려주는 컬럼 예시)
+   const creditData = [];
+   
+   // 2. Grid 공통 옵션
+   const creditGridOptions = {
+       bodyHeight: 400,
+       scrollX: true,
+       scrollY: true,
+       rowHeaders: [],
+       rowHeight: 40,
+       columnOptions: {
+           minWidth: 80,
+           resizable: true
+       },
+       // 셀 더블클릭 시 편집 시작
+       editingEvent: 'dblclick'
+   };
+   // 숫자 변환 유틸 (빈값/콤마 처리)
+   function toNumber(val) {
+       if (val === null || val === undefined) return 0;
+       const str = String(val).replace(/,/g, '').trim();
+       if (str === '') return 0;
+       return Number(str) || 0;
+   }
+   // 3. 여신한도 / 여신현황 Grid 생성
+   const creditGrid = new tui.Grid({
+       el: document.getElementById('creditGrid'),
+       data: creditData,
+       ...creditGridOptions,
+       columns: [
+           { header: '고객코드', name: 'custcomId', width: 120, align: 'center' },
+           { header: '고객사',   name: 'custcomName', width: 180 },
+           {
+               header: '고객사상세조회',
+               name: 'clientSelect',
+               width: 120,
+               align: 'center',
+               formatter: ({ rowKey, row }) => {
+                   const label = row.custcomNameResult || '고객사조회';
+                   return `
+                     <button type="button"
+                             class="grid-btn open-client-modal-btn"
+                             data-row-key="${rowKey}"
+                             data-custcom-id="${row.custcomId || ''}">
+                       ${label}
+                     </button>
+                   `;
+               }
+           },
+           // 신용등급: 더블클릭 시 셀렉트 박스로 편집
+           {
+               header: '신용등급',
+               name: 'creditGrad',
+               width: 90,
+               align: 'center',
+               editor: {
+                 type: 'select',
+                 options: {
+                   listItems: [
+                     { text: 'A', value: 'A' },
+                     { text: 'B', value: 'B' },
+                     { text: 'C', value: 'C' },
+                     { text: 'D', value: 'D' }
+                   ]
+                 }
+               }
+             },
+           // 여신체크: 더블클릭 시 Y/N 선택
+           {
+             header: '여신체크',
+             name: 'cdtlnCheck',
+             width: 90,
+             align: 'center',
+             editor: {
+               type: 'select',
+               options: {
+                 listItems: [
+                   { text: 'Y', value: 'Y' },
+                   { text: 'N', value: 'N' }
+                 ]
+               }
+             }
+           },
+           {
+			  header: '담보한도',
+			  name: 'mrtggLmt',
+			  width: 110,
+			  align: 'right',
+			  editor: {
+			    type: 'text',
+			    options: { inputType: 'number' }
+			  },
+			  validation: {
+			    regExp: /^[0-9]+$/   // 정수만
+			  },
+			  formatter: ({ value }) => {
+			    const num = toNumber(value);
+			    return num ? num.toLocaleString() : '';
+			  }
+			},
+			{
+			  header: '신용한도',
+			  name: 'creditLmt',
+			  width: 110,
+			  align: 'right',
+			  editor: {
+			    type: 'text',
+			    options: { inputType: 'number' }
+			  },
+			  validation: {
+			    regExp: /^[0-9]+$/   // 정수만
+			  },
+			  formatter: ({ value }) => {
+			    const num = toNumber(value);
+			    return num ? num.toLocaleString() : '';
+			  }
+			},
+			{
+			    header: '여신한도',
+			    name: 'cdtlnLmt',
+			    width: 110,
+			    align: 'right',
+
+			    formatter: ({ value }) => {
+			    const num = toNumber(value);
+			    return num ? num.toLocaleString() : '';
+			  }
+			},
+			// 현재잔액 (조회 결과 내려오는 값, 필요하면 직접 수정 가능)
+			{
+			  header: '채권잔액',
+			  name: 'bondBaln',
+			  width: 110,
+			  align: 'right',
+			  formatter: ({ value }) => {
+			    const num = toNumber(value);
+			    return num ? num.toLocaleString() : '';
+			  }
+			},
+			
+			// 사용률 = 현재잔액 / 여신한도 * 100
+			{
+			  header: '사용률(%)',
+			  name: 'useRate',
+			  width: 90,
+			  align: 'center',
+			  formatter: ({ value }) => {
+			    if (value === null || value === undefined || value === '') return '';
+			    const num = Number(value);
+			    if (isNaN(num)) return '';
+			    return num.toFixed(1); // 소수 1자리
+			  }
+			},
+			{
+			    header: '최대연체(개월)',
+			    name: 'creditMm',
+			    width: 110,
+			    align: 'center',
+			    formatter: ({ row }) => getCreditMmByGrad(row.creditGrad)
+			},
+			{ header: '출하정지상태',   name: 'shipmntStop', width: 120, align: 'center' },
+			{
+			    header: '출하정지',
+			    name: 'shipHoldYn',
+			    width: 120,
+			    align: 'center',
+			    formatter: ({ value }) => {
+			        if (value === 'Y') {
+			     	   return `<button class="grid-btn ship-hold-btn" data-value="N">출하해제</button>`;
+			        }
+			        else{                	   
+			        		return `<button class="grid-btn ship-hold-btn" data-value="Y">출하정지</button>`;
+			        }
+			    }
+			    
+			},
+			{
+			    header: '회전일수',
+			    name: 'turnoverDays',
+			    width: 90,
+			    align: 'center'
+			},
+			{ header: '한도초과여부', name: 'lmtoverCheck', width: 110, align: 'center' },
+       ]
+   });
+   
+// 숫자만 남기는 유틸
+   creditGrid.on('editingStart', (ev) => {
+	  if (!['mrtggLmt', 'creditLmt'].includes(ev.columnName)) return;
+	
+	  const rowKey = ev.rowKey;
+	  const col = ev.columnName;
+	  const value = creditGrid.getValue(rowKey, col);
+	
+	  // 숫자 아닌 값이면 편집 시작 시 비우기
+	  if (!/^\d+$/.test(String(value))) {
+		  creditGrid.setValue(rowKey, col, '');
+	  }
+	
+	  // UX: 전체선택
+	  setTimeout(() => {
+	    const input = document.querySelector('.tui-grid-cell-editor input');
+	    if (input) input.select();
+	  });
+	});
+	
+	   creditGrid.on('editingFinish', (ev) => {
+	  if (!['mrtggLmt', 'creditLmt'].includes(ev.columnName)) return;
+	
+	  const rowKey = ev.rowKey;
+	  const col = ev.columnName;
+	  let value = creditGrid.getValue(rowKey, col);
+	
+	  // 편집 끝나고 숫자만 남기기
+	  value = String(value ?? '').replace(/[^\d]/g, '');
+	
+	  creditGrid.setValue(rowKey, col, value);
+	});
+   
+   
+   // ================================================================== 그리드 내 자동 계산 함수
+   // 숫자 변환 유틸 (기존 그대로 사용)
+   function toNumber(val) {
+     if (val === null || val === undefined) return 0;
+     const str = String(val).replace(/,/g, '').trim();
+     if (str === '') return 0;
+     return Number(str) || 0;
+   }
+
+    // 담보/신용/현재잔액 변경 시 여신한도 & 사용률 자동 계산
+   creditGrid.on('afterChange', (ev) => {
+
+     if (!ev.changes || ev.changes.length === 0) return;
+
+     const affectedRowKeys = new Set();
+
+     ev.changes.forEach(change => {
+       const { rowKey, columnName, value } = change; 
+
+       // 1) 담보한도 또는 신용한도 변경 시 → 여신한도 = 담보 + 신용
+       if (columnName === 'mrtggLmt' || columnName === 'creditLmt') {
+         const row = creditGrid.getRow(rowKey);
+         const mrtgg  = toNumber(row.mrtggLmt);
+         const credit = toNumber(row.creditLmt);
+         const total  = mrtgg + credit;
+
+         creditGrid.setValue(rowKey, 'cdtlnLmt', total);
+       } 
+       
+       
+       // 1) 신용등급 변경 시 최대연체(개월) 자동 설정
+       if (columnName === 'creditGrad') {
+           let maxMm = 1; // 기본값: C, D 등급은 1개월
+           if (value === 'A') {
+               maxMm = 3;
+           } else if (value === 'B') {
+               maxMm = 2;
+           }
+           creditGrid.setValue(rowKey, 'creditMm', maxMm);
+       }
+
+       // 2) 사용률 계산에 영향을 주는 컬럼이면 rowKey 기록
+       if (columnName === 'mrtggLmt' ||
+           columnName === 'creditLmt' ||
+           columnName === 'cdtlnLmt' ||
+           columnName === 'remainAmt') {
+         affectedRowKeys.add(rowKey);
+       }
+     });
+     
+     
+     // 3) 각 행별로 사용률 재계산
+     affectedRowKeys.forEach(rowKey => {
+       const row    = creditGrid.getRow(rowKey);
+       const limit  = toNumber(row.cdtlnLmt);   // 여신한도
+       const remain = toNumber(row.remainAmt);  // 현재잔액
+
+       let rate = 0;
+       if (limit > 0) {
+         rate = (remain / limit) * 100;
+       }
+
+       // useRate 컬럼에 1자리 소수로 저장
+       creditGrid.setValue(rowKey, 'useRate', rate.toFixed(1));
+     });
+   });
+   
+   
+
+   
+   
+   // 5-1 검색조건 초기화 버튼
+   document.getElementById("creditInit").addEventListener("click", function () {
+       const searchForm = { custcomId: "", custcomName: "" };
+       document.querySelector("#autoCustcomId").value = "";
+       document.querySelector("#autoCustcomName").value = "";
+       console.log("검색조건 초기화:", searchForm);
+   });
+   
+   
+   // 5-2 조회버튼
+   $(document).on("click", "#searchCredit", function () {
+       let searchForm = {
+           custcomId: $("#autoCustcomId").val().trim(),
+           custcomName: $("#autoCustcomName").val().trim()
+       };
+       console.log("보낼 searchForm >>> ", searchForm);
+       $.ajax({
+           url: "/credit/list",
+           type: "POST",
+           contentType: "application/json",
+           data: JSON.stringify(searchForm),
+           success: function (res) {
+               console.log("조회결과 >>> ", res);
+               creditGrid.resetData(res);
+           },
+           error: function (err) {
+               console.error("조회 중 오류:", err);
+           }
+       });
+   });
+   
+   
+   // 5-3 고객코드 자동완성
+   if (window.TeamCommon && TeamCommon.autocomplete && typeof TeamCommon.autocomplete.init === 'function') {
+       TeamCommon.autocomplete.init({
+           inputSelector: '#autoCustcomId',
+           listSelector: '#autoCustcomIdSuggest',
+           url: '/credit/custcomIdSearch',
+           paramName: 'keyword',
+           minLength: 1,
+           delay: 300,
+           preventClose: true,
+           mapResponse: item => ({
+               id: item.customId,
+               label: item.custcomId,
+               value: item.custcomId,
+               name: item.custcomName
+           }),
+           onSelect: item => {
+               $('#autoCustcomId').val(item.value);
+               $('#autoCustcomName').val(item.name);
+           }
+       });
+   } else {
+       console.warn('TeamCommon.autocomplete.init 을 찾을 수 없습니다. teamUtil.js / autocomplete 유틸 로딩 확인');
+   }
+   
+   
+   // 5-4 고객사명 자동완성
+   if (window.TeamCommon && TeamCommon.autocomplete && typeof TeamCommon.autocomplete.init === 'function') {
+       TeamCommon.autocomplete.init({
+           inputSelector: '#autoCustcomName',
+           listSelector: '#autoCustcomNameSuggest',
+           url: '/credit/custcomNameSearch',
+           paramName: 'keyword',
+           minLength: 1,
+           delay: 300,
+           preventClose: true,
+           mapResponse: item => ({
+               id: item.custcomId,
+               label: item.custcomName,
+               value: item.custcomName
+           }),
+           onSelect: item => {
+               $('#autoCustcomName').val(item.value);
+               $('#autoCustcomId').val(item.id);
+           }
+       });
+   } else {
+       console.warn('TeamCommon.autocomplete.init 을 찾을 수 없습니다. teamUtil.js / autocomplete 유틸 로딩 확인');
+   }
+   
+   
+   // 6. 고객사정보 모달
+   const modal = document.getElementById("creditModal");
+   const back  = document.getElementById("creditBackdrop");
+   function openCreditModal() {
+       modal.classList.add("show");
+       modal.style.display = "block";
+       back.style.display = "block";
+   }
+   function closeCreditModal() {
+       modal.classList.remove("show");
+       modal.style.display = "none";
+       back.style.display = "none";
+   }
+   function resetCreditModalForm() {
+       $('#bizAddr').val('');
+       $('#bizTel').val('');
+       $('#bizFax').val('');
+       $('#psch').val('');
+       $('#pschTel').val('');
+       $('#pschEmail').val('');
+   }
+   
+   
+   modal.addEventListener("click", (event) => {
+       if (!event.target.closest(".modal-content")) {
+           closeCreditModal();
+       }
+   });
+   
+   
+   
+   document.addEventListener('click', (e) => {
+	   // 고객사상세조회 버튼 클릭
+       if (e.target.classList.contains('open-client-modal-btn')) {
+	       const custcomId = e.target.dataset.custcomId;
+	       if (!custcomId) {
+	           alert('고객사 코드가 없습니다.');
+	           return;
+	       }
+	       resetCreditModalForm();
+	       $.ajax({
+	           url: '/credit/custcomDetail',
+	           type: 'GET',
+	           data: { custcomId: custcomId },
+	           success: function (res) {
+	        	   $('#custcomIdText').text(res.custcomId);
+	        	   $('#custcomNameText').text(res.custcomName);
+	               $('#bizAddr').val(res.bizAddr || '');
+	               $('#bizTel').val(res.bizTel || '');
+	               $('#bizFax').val(res.bizFax || '');
+	               $('#psch').val(res.psch || '');
+	               $('#pschTel').val(res.pschTel || '');
+	               $('#pschEmail').val(res.pschEmail || '');
+	               openCreditModal();
+	           },
+	           error: function (err) {
+	               console.error('업체정보 조회 실패', err);
+	               alert('업체 정보를 가져오지 못했습니다.');
+	           }
+	       });
+	      //출하정지버튼 눌렀을때
+       } else if (e.target.classList.contains('ship-hold-btn')){
+    	   $.ajax({
+	           url: '/credit/shipmntStop',
+	           type: 'PUT',
+	           data: { custcomId: custcomId },
+	           success: function (res) {
+	           },
+	           error: function (err) {
+	               alert('출하해제가 되었습니다.');
+	           }
+	       });
+    	   
+       }
+	   
+	   
+   });
+   
+   
+	//9. modalSaveBtn(저장버튼) 이벤트
+	document.getElementById('saveBtn').addEventListener('click', () => {
+		console.log(document.getElementById('saveBtn'));
+	  const { updatedRows } = creditGrid.getModifiedRows();
+	
+	  if (!updatedRows || updatedRows.length === 0) {
+	    alert('저장할 변경사항이 없습니다.');
+	    return;
+	  }
+	
+	  // 서버로 보낼 데이터
+	  const payload = updatedRows.map(row => ({
+	    custcomId: row.custcomId,
+	    creditGrad: row.creditGrad,
+	    cdtlnCheck: row.cdtlnCheck,
+	    mrtggLmt: toNumber(row.mrtggLmt),
+	    creditLmt: toNumber(row.creditLmt),
+	    cdtlnLmt: toNumber(row.cdtlnLmt)
+	  }));
+	
+	  console.log('저장 payload:', payload); // ⭐ 디버깅용
+	
+	  axios.post('/credit/save', payload)
+	    .then(res => {
+	      if (res.data.result === 'success') {
+	        alert('저장 완료');
+	        creditGrid.clearModifiedData(); // ⭐ 변경 상태 초기화
+	      } else {
+	        alert(res.data.message || '저장 실패');
+	      }
+	    })
+	    .catch(err => {
+	      console.error(err);
+	      alert('저장 중 오류 발생');
+	    });
+	});
+
+</script>
+</body>
+</html>

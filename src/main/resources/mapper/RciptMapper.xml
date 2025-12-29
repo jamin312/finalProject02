@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="store.yd2team.business.mapper.RciptMapper">
+    
+    <!-- 채권조회 -->
+	<select id="selectRciptList" parameterType="store.yd2team.business.service.RciptVO" resultType="store.yd2team.business.service.RciptVO">
+	
+	    SELECT
+		    r.rcipt_id        AS rciptId,
+		    r.custcom_id      AS custcomId,
+		    c.custcom_name    AS custcomName,
+		    r.trns_dt         AS trnsDt,
+		    r.ltst_rcipt_dt   AS ltstRciptDt,
+		    r.rpay_yn         AS rpayYn,
+		    (
+	          SELECT NVL(SUM(d.rcipt_amt), 0)
+	            FROM tb_rcipt_detail d
+	           WHERE d.rcipt_id = r.rcipt_id
+	        ) AS rciptAmtSum,
+		
+		    /* 그리드에 보여줄 채권금액 */
+		    (r.bond_amt - prev_input_amt) AS bondAmt,
+		
+		    /* 입금액(건당) */
+		    d.rcipt_amt       AS rciptAmt,
+		
+		    /* 누적입금액 */
+		    acc_input_amt     AS accRciptAmt,
+		
+		    /* 채권잔액 */
+		    (r.bond_amt - acc_input_amt) AS bondBaln,
+		
+		    d.rcipt_dt        AS rciptDt
+		FROM (
+		    SELECT
+		        d.*,
+		        SUM(d.rcipt_amt) OVER (
+		            PARTITION BY d.rcipt_id
+		            ORDER BY d.rcipt_dt, d.rcipt_detail_no
+		        ) AS acc_input_amt,
+		        NVL(
+		            SUM(d.rcipt_amt) OVER (
+		                PARTITION BY d.rcipt_id
+		                ORDER BY d.rcipt_dt, d.rcipt_detail_no
+		                ROWS BETWEEN UNBOUNDED PRECEDING AND 1 PRECEDING
+		            ),
+		            0
+		        ) AS prev_input_amt
+		    FROM tb_rcipt_detail d
+		) d
+		LEFT JOIN tb_rcipt r
+		     ON r.rcipt_id = d.rcipt_id
+		LEFT JOIN tb_custcom c
+		     ON c.custcom_id = r.custcom_id
+		ORDER BY r.rcipt_id, d.rcipt_dt DESC, d.rcipt_detail_no DESC
+			    
+	
+	</select>
+	
+
+	<!-- 입금처리 버튼 프로시저 호출 -->
+	<update id="callRciptPayment" parameterType="map">
+	    CALL pr_rcipt_payment(
+	          #{vendId}
+	        , #{rciptId}
+	        , #{custcomId}
+	        , TO_DATE(#{rciptDt}, 'YYYY-MM-DD')
+	        , #{rciptAmt}
+	        , #{pmtMtd}
+	        , #{rm}
+	        , #{empId}
+	    )
+	</update>
+	
+	<!-- 입금내역 조회 (채권 상세 / 통장식) -->
+    <select id="selectRciptDetailList" parameterType="string" resultType="store.yd2team.business.service.RciptVO">
+
+        SELECT
+              d.rcipt_dt     AS rciptDt
+            , d.rcipt_amt    AS rciptAmt
+            , d.pmt_mtd      AS pmtMtd
+            , d.rm           AS rm
+        FROM tb_rcipt_detail d
+        WHERE d.rcipt_id = #{rciptId}
+        ORDER BY d.rcipt_dt ASC
+
+    </select>
+	
+</mapper>

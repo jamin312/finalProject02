@@ -1,0 +1,173 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="store.yd2team.common.mapper.DashboardMapper">
+
+	<select id="selectSummary" parameterType="string"
+          resultType="store.yd2team.common.dto.DashboardSummaryDto">
+    SELECT
+      /* 전체 사원 수 */
+      (SELECT COUNT(*)
+         FROM tb_emp e
+        WHERE e.vend_id = #{vendId}
+      ) AS totalEmp,
+
+      /* 계정 미부여 사원 수 (사원은 있으나 tb_emp_acct 없음) */
+	  (SELECT COUNT(*)
+	     FROM tb_emp e
+	     LEFT JOIN tb_emp_acct a
+	       ON a.vend_id = e.vend_id
+	      AND a.emp_id  = e.emp_id 
+	    WHERE e.vend_id = #{vendId}
+	      AND a.emp_id IS NULL
+	  ) AS noAcctEmp,
+
+      /* 권한 없는 계정 수(역할 미지정) */
+      (SELECT COUNT(*)
+         FROM tb_emp_acct a
+         LEFT JOIN tb_user_role ur
+           ON ur.emp_acct_id = a.emp_acct_id
+          AND ur.vend_id     = a.vend_id
+        WHERE a.vend_id = #{vendId}
+          AND ur.emp_acct_id IS NULL
+      ) AS noRoleAcct,
+
+      /* 오늘 로그인 성공(lg1) */
+      (SELECT COUNT(*)
+         FROM tb_log l
+        WHERE l.vend_id = #{vendId}
+          AND l.err_dttm >= TRUNC(SYSDATE)
+          AND l.motion_ty = 'lg1'
+      ) AS loginSuccToday,
+
+      /* 오늘 로그인 실패(lg2) */
+      (SELECT COUNT(*)
+         FROM tb_log l
+        WHERE l.vend_id = #{vendId}
+          AND l.err_dttm >= TRUNC(SYSDATE)
+          AND l.motion_ty = 'lg2'
+      ) AS loginFailToday,
+
+      /* 오늘 OTP 실패(lg5) */
+      (SELECT COUNT(*)
+         FROM tb_log l
+        WHERE l.vend_id = #{vendId}
+          AND l.err_dttm >= TRUNC(SYSDATE)
+          AND l.motion_ty = 'lg5'
+      ) AS otpFailToday,
+
+      /* 오늘 잠금 발생(lg3) */
+      (SELECT COUNT(*)
+         FROM tb_log l
+        WHERE l.vend_id = #{vendId}
+          AND l.err_dttm >= TRUNC(SYSDATE)
+          AND l.motion_ty = 'lg3'
+      ) AS lockedToday,
+
+      /* 현재 잠김 계정 수 (tb_emp_acct.st = 'r2') */
+      (SELECT COUNT(*)
+         FROM tb_emp_acct a
+        WHERE a.vend_id = #{vendId}
+          AND a.st = 'r2'
+      ) AS lockedNow
+
+    FROM dual
+  </select>
+
+  <!-- =========================
+       계정 상태 분포 (st)
+       ========================= -->
+  <select id="selectAcctStatusDist" parameterType="string"
+          resultType="store.yd2team.common.dto.LabelCountDto">
+    SELECT
+      a.st AS label,
+      COUNT(*) AS cnt
+    FROM tb_emp_acct a
+    WHERE a.vend_id = #{vendId}
+    GROUP BY a.st
+    ORDER BY cnt DESC
+  </select>
+
+  <!-- =========================
+       역할 분포 (role_ty)
+       ========================= -->
+  <select id="selectRoleTypeCount" parameterType="string"
+          resultType="store.yd2team.common.dto.LabelCountDto">
+    SELECT
+      r.role_ty AS label,
+      COUNT(DISTINCT ur.emp_acct_id) AS cnt
+    FROM tb_user_role ur
+    JOIN tb_role r
+      ON r.role_id = ur.role_id
+     AND NVL(r.vend_id,ur.vend_id) = ur.vend_id
+    WHERE ur.vend_id = #{vendId}
+    GROUP BY r.role_ty
+    ORDER BY cnt DESC
+  </select>
+
+  <!-- =========================
+       최근 로그인 실패 TOP 10
+       ========================= -->
+  <select id="selectTopLoginFail" parameterType="string"
+          resultType="store.yd2team.common.dto.TopLoginFailDto">
+    SELECT *
+    FROM (
+      SELECT
+        a.login_id     AS loginId,
+        l.emp_acct_id AS empAcctId,
+        COUNT(*)      AS failCnt,
+        TO_CHAR(MAX(l.err_dttm), 'YYYY-MM-DD HH24:MI:SS') AS lastFailDttm
+      FROM tb_log l
+      LEFT JOIN tb_emp_acct a
+	         ON a.vend_id     = l.vend_id
+	        AND a.emp_acct_id = l.emp_acct_id
+      WHERE l.vend_id = #{vendId}
+        AND l.motion_ty = 'lg2'
+      GROUP BY a.login_id, l.emp_acct_id
+      ORDER BY failCnt DESC, lastFailDttm DESC
+    )
+    WHERE ROWNUM &lt;= 10
+  </select>
+
+  <!-- =========================
+       최근 권한 변경 내역 (ro1, au1) 최근 20
+       ========================= -->
+  <select id="selectRecentAuthChanges" parameterType="string"
+          resultType="store.yd2team.common.dto.RecentAuthChangeDto">
+    SELECT *
+    FROM (
+      SELECT
+        TO_CHAR(l.err_dttm, 'YYYY-MM-DD HH24:MI:SS') AS errDttm,
+        a.login_id    AS loginId,
+        l.emp_acct_id AS empAcctId,
+        l.vend_id    AS vendId,
+        l.motion_ty  AS motionTy,
+        
+        CASE l.motion_ty
+	        WHEN 'ro1' THEN '역할 저장'
+	        WHEN 'au1' THEN '메뉴 권한 저장'
+	        WHEN 'lg1' THEN '로그인 성공'
+	        WHEN 'lg2' THEN '로그인 실패'
+	        WHEN 'lg3' THEN '계정 잠금 발생'
+	        WHEN 'lg4' THEN '자동 잠금 해제'
+	        WHEN 'lg5' THEN 'OTP 실패'
+	        WHEN 'lg6' THEN 'OTP 통과/OTP 단계 진입'
+	        WHEN 'ac1' THEN '비밀번호 변경'
+	        WHEN 'co1' THEN '공통코드 등록'
+	        WHEN 'co2' THEN '공통코드 수정'
+	        ELSE l.motion_ty
+        END AS motionTyName,
+        
+        l.smry       AS smry,
+        l.crea_by    AS creaBy
+      FROM tb_log l
+      LEFT JOIN tb_emp_acct a
+             ON a.vend_id     = l.vend_id
+            AND a.emp_acct_id = l.emp_acct_id
+      WHERE l.vend_id = #{vendId}
+        AND l.motion_ty IN ('ro1', 'au1')
+      ORDER BY l.err_dttm DESC
+    )
+    WHERE ROWNUM &lt;= 20
+  </select>
+
+</mapper>

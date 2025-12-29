@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml"
+	xmlns:th="http://www.thymeleaf.org"
+	xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+	layout:decorate="~{layout}">
+<head>
+<meta charset="UTF-8">
+<title>시스템 로그 조회</title>
+
+<!-- Toast UI Grid -->
+<link rel="stylesheet"
+	href="https://uicdn.toast.com/grid/latest/tui-grid.css" />
+<script src="https://uicdn.toast.com/grid/latest/tui-grid.js"></script>
+
+<!-- bootstrap-datepicker (공통 util에서 초기화만 담당) -->
+<script
+	src="assets/vendors/bootstrap-datepicker/bootstrap-datepicker.min.js"></script>
+
+<!-- 아이콘 -->
+<link rel="stylesheet"
+	href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
+
+<style>
+.log-wrapper .card-title {
+	font-weight: 600;
+}
+
+/* Grid 컨테이너 */
+.log-wrapper #logGrid {
+	width: 100%;
+	margin-top: 4px;
+}
+
+/* row header 색상은 style.css 공통(.tui-grid-header-area / body-area) 사용 */
+
+.autocomplete-list{
+  position:absolute;
+  top:100%;
+  left:0;
+  right:0;
+  z-index:9999;
+  background:#fff;
+  border:1px solid #ddd;
+  border-top:0;
+  max-height:220px;
+  overflow:auto;
+}
+.autocomplete-item{
+  padding:8px 10px;
+  cursor:pointer;
+}
+.autocomplete-item:hover{
+  background:#f3f3f3;
+}
+</style>
+</head>
+
+<body layout:fragment="content">
+	<div class="log-wrapper">
+
+		<!-- 검색 영역 -->
+		<div class="card mb-3">
+			<div class="card-header">
+				<div class="card-header-left">
+					<h5 class="card-title">시스템 로그 조회</h5>
+				</div>
+				<div class="card-header-right">
+					<button type="button" class="btn btn-dark" id="btnReset">초기화</button>
+					<button type="button" class="btn btn-outline-dark" id="btnSearch">조회</button>
+				</div>
+			</div>
+
+			<div class="card-body">
+				<div class="row mb-2">
+					<div class="col-md-3">
+					  <label for="accountId" class="form-label">계정 ID</label>
+					
+					  <div class="position-relative">
+					    <input id="accountId" type="text" class="form-control"
+					           placeholder="HONG@NON.AC" autocomplete="off">
+					    <div id="accountIdList" class="autocomplete-list d-none"></div>
+					  </div>
+					</div>
+					<div class="col-md-3">
+						<label for="module" class="form-label">모듈</label>
+						<select id="module" class="form-select">
+						  <option value="">전체</option>
+						</select>
+					</div>
+					<div class="col-md-3">
+						<label for="action" class="form-label">액션</label>
+						<select id="action" class="form-select">
+						  <option value="">전체</option>
+						</select>
+					</div>
+
+					<div class="col-md-3">
+						<label class="form-label">로그 발생 일시</label>
+						<div class="d-flex align-items-center js-date-range">
+
+							<!-- 시작일 -->
+							<div class="input-group date">
+								<input type="text"
+									class="form-control datepicker js-date-range-start"
+									placeholder="시작일"> <span
+									class="input-group-text js-date-range-icon-start"> <i
+									class="bi bi-calendar"></i>
+								</span>
+							</div>
+
+							<span class="mx-1 fw-bold fs-5">~</span>
+
+							<!-- 종료일 -->
+							<div class="input-group date ms-2">
+								<input type="text"
+									class="form-control datepicker js-date-range-end"
+									placeholder="종료일"> <span
+									class="input-group-text js-date-range-icon-end"> <i
+									class="bi bi-calendar"></i>
+								</span>
+							</div>
+						</div>
+
+					</div>
+				</div>
+			</div>
+		</div>
+
+		<!-- 로그 목록 영역 -->
+		<div class="card">
+			<div class="card-header">
+				<div class="card-header-left">
+					<h5 class="card-title">로그 목록</h5>
+				</div>
+				<div class="card-header-right">
+					<!-- 버튼 없음(필요 시 추가) -->
+				</div>
+			</div>
+
+			<div class="card-body">
+				<div id="logGrid"></div>
+			</div>
+		</div>
+
+	</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', async function () {
+  if (!window.tui || !tui.Grid) return;
+
+  const $account = document.getElementById('accountId');
+  const $module = document.getElementById('module');
+  const $action = document.getElementById('action');
+  const $start = document.querySelector('.js-date-range-start');
+  const $end = document.querySelector('.js-date-range-end');
+
+  const $btnSearch = document.getElementById('btnSearch');
+  const $btnReset = document.getElementById('btnReset');
+
+  const $acList = document.getElementById('accountIdList');
+
+  const logGrid = new tui.Grid({
+    el: document.getElementById('logGrid'),
+    data: [],
+    bodyHeight: 460,
+    scrollX: false,
+    scrollY: true,
+    rowHeaders: ['checkbox'],
+    columnOptions: { minWidth: 80, resizable: true },
+    columns: [
+      { header: '발생 일시',   name: 'occurredAt', minWidth: 160, align: 'right' },
+      { header: '계정 ID',     name: 'accountId',  minWidth: 160 },
+      { header: '모듈',        name: 'moduleNm',   minWidth: 100 },
+      { header: '액션',        name: 'actionNm',   minWidth: 100 },
+      { header: '대상 테이블', name: 'targetTable',minWidth: 120 },
+      { header: '대상 테이블 PK', name: 'targetPk',   minWidth: 160 },
+      { header: '요약 정보',   name: 'summary',    minWidth: 260 }
+    ]
+  });
+
+  async function initFilters() {
+    const res = await fetch('/api/sysLog/filters');
+    const json = await res.json();
+    const modules = json?.data?.modules || [];
+    const actions = json?.data?.actions || [];
+    
+    $module.innerHTML = '<option value="">전체</option>';
+    $action.innerHTML = '<option value="">전체</option>';
+
+    // 기존 옵션(전체) 유지하고 뒤에 붙이기
+    modules.forEach(c => {
+      const opt = document.createElement('option');
+      opt.value = c.codeId;
+      opt.textContent = c.codeNm;
+      $module.appendChild(opt);
+    });
+
+    actions.forEach(c => {
+      const opt = document.createElement('option');
+      opt.value = c.codeId;
+      opt.textContent = c.codeNm;
+      $action.appendChild(opt);
+    });
+  }
+
+  async function loadLogs() {
+    const params = new URLSearchParams({
+      accountId: $account.value || '',
+      module: $module.value || '',
+      action: $action.value || '',
+      startDate: $start?.value || '',
+      endDate: $end?.value || ''
+    });
+
+    const res = await fetch('/api/sysLog/list?' + params.toString());
+    const json = await res.json();
+
+    const list = (json?.data?.contents || []).map(row => ({
+      occurredAt: row.errDttm,
+      accountId: row.loginId,
+      moduleNm: row.modlCodeNm || row.modlCode,
+      actionNm: row.motionTyNm || row.motionTy,
+      targetTable: row.targetTbNm,
+      targetPk: row.targetPk,
+      summary: row.smry
+    }));
+
+    logGrid.resetData(list);
+  }
+
+  // ===== 초기화 =====
+  $btnReset.addEventListener('click', () => {
+    $account.value = '';
+    $module.value = '';
+    $action.value = '';
+    if ($start) $start.value = '';
+    if ($end) $end.value = '';
+    hideAutoComplete();
+    logGrid.resetData([]);
+  });
+
+  // ===== 조회 =====
+  $btnSearch.addEventListener('click', loadLogs);
+
+  // ===== 자동완성 =====
+  function showAutoComplete(items) {
+    if (!items.length) { hideAutoComplete(); return; }
+    $acList.innerHTML = items.map(v => `<div class="autocomplete-item" data-value="${v}">${v}</div>`).join('');
+    $acList.classList.remove('d-none');
+  }
+
+  function hideAutoComplete() {
+    $acList.classList.add('d-none');
+    $acList.innerHTML = '';
+  }
+
+  let acTimer = null;
+  $account.addEventListener('input', () => {
+    const q = $account.value.trim();
+    clearTimeout(acTimer);
+
+    if (!q) { hideAutoComplete(); return; }
+
+    acTimer = setTimeout(async () => {
+      try {
+        const res = await fetch('/api/sysLog/loginIds?q=' + encodeURIComponent(q));
+        const json = await res.json();
+        showAutoComplete(json?.data || []);
+      } catch (e) {
+        hideAutoComplete();
+      }
+    }, 200);
+  });
+
+  $acList.addEventListener('click', (e) => {
+    const item = e.target.closest('.autocomplete-item');
+    if (!item) return;
+    $account.value = item.dataset.value;
+    hideAutoComplete();
+  });
+
+  // 바깥 클릭하면 닫기
+  document.addEventListener('click', (e) => {
+    if (e.target === $account || $acList.contains(e.target)) return;
+    hideAutoComplete();
+  });
+
+  // 최초 로딩
+  await initFilters();
+
+  window.addEventListener('resize', () => logGrid.refreshLayout());
+});
+</script>
+
+
+
+</body>
+</html>

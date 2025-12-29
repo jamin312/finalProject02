@@ -1,0 +1,828 @@
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml"
+	xmlns:th="http://www.thymeleaf.org"
+	xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+	layout:decorate="~{layout}">
+<head>
+<meta charset="UTF-8">
+<title>mlss.html</title>
+
+<style>
+.form-select {
+	color: #000 !important;
+}
+/* 추가 CSS */
+.readonly-input[readonly] {
+	background-color: #e9ecef; /* Bootstrap 기본 disabled 색상 */
+	cursor: not-allowed; /* 마우스 커서도 입력 불가 느낌 */
+}
+
+.stIsShow {
+	display: none;
+}
+
+.menu-item {
+	cursor: pointer; /* 마우스 올리면 손가락 모양 */
+}
+
+.fw-bold {
+font-weight: bold;
+}
+
+.btn-group .btn:not(:last-child) {
+    border-right-width: 0 !important;
+}
+
+
+
+</style>
+</head>
+<body layout:fragment="content">
+	<div class="row">
+		<div class="col-md-12">
+			<div class="card mb-3">
+				<!-- 카드 헤더 : 제목 + 초기화/조회 버튼 -->
+				<div class="card-header">
+					<div class="card-header-left">
+						<h5 class="card-title">평가 진행 현황 박스</h5>
+					</div>					
+				</div>
+				<div class="card-body">
+
+					<div class="row mb-2">
+						<div class="col-md-2">
+							<label class="form-label">본인 평가 완료 여부</label> <input type="text"
+								id="selfSt" value="0 / 3" class="form-control" />
+						</div>
+						<div class="col-md-2">
+							<label class="form-label">상사 평가 완료 여부</label> <input type="text"
+								id="suprrSt" th:value="|0 / ${evaleRelateUpr.size()}|" class="form-control" />
+						</div>
+						<div class="col-md-2">
+							<label class="form-label">동료 평가 완료 여부</label> <input type="text"
+								id="crkSt" th:value="|0 / ${evaleRelateLwr.size()}|" class="form-control"/>
+						</div>
+						<div class="col-md-6">
+								<label for="userName" class="form-label">기간</label>
+								<div class="d-flex align-items-center js-date-range">
+
+										<!-- 시작일 -->
+										<div class="input-group date">
+											<input type="text"
+												class="form-control datepicker js-date-range-start"
+												th:value="${#dates.format(evlBeginDt, 'yyyy-MM-dd')}" placeholder="시작일"> <span
+												class="input-group-text js-date-range-icon-start"> <i
+												class="bi bi-calendar"></i>
+											</span>
+										</div>
+
+										<span class="mx-1 fw-bold fs-5">~</span>
+
+										<!-- 종료일 -->
+										<div class="input-group date ms-2">
+											<input type="text"
+												class="form-control datepicker js-date-range-end"
+												th:value="${#dates.format(evlEndDt, 'yyyy-MM-dd')}" placeholder="종료일"> <span
+												class="input-group-text js-date-range-icon-end"> <i
+												class="bi bi-calendar"></i>
+											</span>
+										</div>
+
+									</div>
+							</div>
+
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+
+
+	<div class="row">
+		<!-- <div class="col-md-2">
+			<div class="card">
+				<div class="menu-item" onclick="chTitle(this)">
+					<i class="fa fa-edit"></i>본인 평가
+				</div>
+				<div class="menu-item" onclick="chTitle(this)">
+					<i class="fa fa-edit"></i>상사 평가
+				</div>
+				<div class="menu-item" onclick="chTitle(this)">
+					<i class="fa fa-edit"></i>동료 평가
+				</div>
+				<div class="menu-item" onclick="chTitle(this)">
+					<i class="fa fa-edit"></i>결과지 확인
+				</div>
+			</div>
+		</div> -->
+		<div class="col-md-10">
+		<div class="btn-group" role="group" aria-label="Basic radio toggle button group">
+  <input type="radio"  class="btn-check" name="btnradio" id="btnradio1" autocomplete="off" checked>
+  <label class="btn btn-outline-primary fw-bold" onclick="chTitle(this)" for="btnradio1"><i class="fa fa-edit"></i>본인 평가</label>
+
+  <input type="radio"  class="btn-check" name="btnradio" id="btnradio2" autocomplete="off">
+  <label class="btn btn-outline-primary fw-bold" onclick="chTitle(this)" for="btnradio2"><i class="fa fa-edit"></i>상사 평가</label>
+
+  <input type="radio"  class="btn-check" name="btnradio" id="btnradio3" autocomplete="off">
+  <label class="btn btn-outline-primary fw-bold" onclick="chTitle(this)" for="btnradio3"><i class="fa fa-edit"></i>동료 평가</label>
+
+  <input type="radio"  class="btn-check" name="btnradio" id="btnradio4" autocomplete="off">
+  <label class="btn btn-outline-primary fw-bold" onclick="chTitle(this)" for="btnradio4"><i class="fa fa-edit"></i>결과지 확인</label>
+</div>
+		</div>
+		<!-- 검색조건 -->
+		<div class="col-md-12">
+			<!-- 사원목록 -->
+			<div id="mlssUser" class="card">
+				<!-- 카드 헤더 : 제목 + 초기화/조회 버튼 -->
+				<div class="card-header d-flex justify-content-between align-items-center">
+					<div class="card-header-left d-flex align-items-center">
+						<!-- collapse 토글 버튼으로 변경 -->
+						<h5 class="card-title mb-0 me-2" id="collapseToggle">본인 평가</h5>
+						<select id="evaleRelate1" class="form-select form-select-sm w-auto">
+								<th:block th:each="val : ${evaleRelateUpr}">
+									<option class="clsf" th:value="${val.mlssEmpId}" th:text="${val.nm}"></option>									
+								</th:block>																															
+							</select>													
+						<select id="evaleRelate2" class="form-select form-select-sm w-auto">								
+								<th:block th:each="val : ${evaleRelateLwr}">
+									<option class="clsf" th:value="${val.mlssEmpId}" th:text="${val.nm}"></option>																	
+								</th:block>																								
+							</select>													
+					</div>
+					<div class="card-header-right">						
+						<button id="mlssUserRegist" type="button" class="btn btn-outline-dark">제출</button>						
+					</div>
+				</div>
+				
+					<div class="card-body">						
+						<div style="height: 530px; overflow:auto;" >
+						<h5 id="yeocRyangGrp" class="card-title">역량 그룹별 평가 항목</h5>
+						<p>직무 역량</p>
+						<div id="toastGrid" style="margin: 20px;"></div>
+						<p>협업 역량</p>
+						<div id="toastGrid2" style="margin: 20px;"></div>
+						<p>자기관리 역량</p>
+						<div id="toastGrid3" style="margin: 20px;"></div>
+						</div>
+					</div>
+				
+			</div>
+			<div id="mlssResult" class="card stIsShow" style="height: 550px; overflow-y:auto; overflow-x:hidden;">
+				<div class="row mb-2">
+					<div class="col-md-6">
+						<div id="radar" style="width: 400px; height: 400px;"></div>
+					</div>
+					<div class="col-md-6">
+						<div id="pie" style="width: 400px; height: 400px;"></div>
+					</div>
+				</div>
+				<div class="row mb-2">
+				<div class="col-md-12">
+				<div id="toastGrid4" style="margin: 20px;"></div>
+				</div>
+				</div>
+				<div class="row mb-2">
+				<div class="col-md-12">
+				<div id="column" style="width: 900px; height: 400px;"></div>
+				</div>
+				</div>
+
+
+			</div>
+		</div>
+	</div>
+	<script th:inline="javascript">	
+	$("#evaleRelate1").hide();
+	$("#evaleRelate2").hide();
+	let mlssEmpId ="";
+	let resultFinalData = null;
+function chTitle(el) {
+	 // div 안의 텍스트 가져오기 (아이콘 제외)
+	const text = $(el).text().trim();
+    if (text === "결과지 확인") {
+        $("#mlssUser").addClass("stIsShow");
+        $("#mlssResult").removeClass("stIsShow");
+        $.ajax({
+      	  url: "/mlssFinalResult",                // 요청 URL
+      	  type: "get"                     // GET 방식 (fetch 코드와 동일)      	  
+      	})
+      	.done((result) => {	
+      		resultFinalData = result;
+      		console.log(resultFinalData);
+      	// 📌 데이터 로딩이 끝난 후 차트 그리기
+            showRadarChart();  
+      	})
+      	.fail((error) => {
+      	  console.error(error);
+      	  alert("데이터 요청 중 오류 발생");
+      	}); 
+    } else {
+        $("#mlssUser").removeClass("stIsShow");
+        $("#mlssResult").addClass("stIsShow");
+    }    
+    
+    // a 태그의 텍스트 변경    
+    $("#collapseToggle").text(text);    
+    if ($("#collapseToggle").text() == "상사 평가") {
+        $("#evaleRelate1").show();        
+        $("#evaleRelate2").hide();   
+        mlssEmpId = $("#evaleRelate1").val();
+    } else if($("#collapseToggle").text() == "동료 평가"){
+    	$("#evaleRelate1").hide();    	
+    	$("#evaleRelate2").show();   
+    	mlssEmpId = $("#evaleRelate2").val();
+    } else {
+    	$("#evaleRelate1").hide();
+    	$("#evaleRelate2").hide();
+    	mlssEmpId = [[${mlssEmpId}]];    	
+    }
+    
+    callMlssChkJohoe(mlssEmpId);
+    
+	/* // 📌 div가 화면에 보이는 순간 차트를 생성
+       if (!radarChart) {
+           showRadarChart();
+       } else {		        	
+       	// 📌 div가 보이는 순간 차트 생성
+           setTimeout(() => {
+               showRadarChart();
+           }, 50); // 화면 갱신 후 실행
+           // 📌 이미 생성한 차트라면 갱신      
+	
+           radarChart.resize();   
+           pieChart.resize();   
+           columnChart.resize();   
+       } */
+	
+	
+       
+	
+}
+
+//select 변경 이벤트에도 연결
+
+$("#evaleRelate1, #evaleRelate2").on("change", function() {
+    mlssEmpId = $(this).val();
+    //console.log(mlssEmpId);
+    callMlssChkJohoe(mlssEmpId);
+});
+
+
+
+
+
+function callMlssChkJohoe(mlssEmpId) {
+	console.log("모나오니"+mlssEmpId);
+	//라디오 버튼 중 checked 되어 있는 것만 선택
+	$("input[type=radio]:checked").prop("checked", false);
+	$.ajax({
+	  url: "/selectMlssChkJohoe",                // 요청 URL
+	  type: "get",                     // GET 방식 (fetch 코드와 동일)
+	  data: {mlssEmpId : mlssEmpId,
+	  	empId: [[${empId}]]}
+	})
+	.done((result) => {	
+		console.log(result);   
+		getdbData(result);
+	})
+	.fail((error) => {
+	  console.error(error);
+	  alert("데이터 요청 중 오류 발생");
+	}); 
+}
+
+function makeRadarData(iemList, myWrterList, evaleRelate) {
+	  // 결과 배열 (직무, 협업, 자기관리 순서)
+	  const result = [];
+
+	  // 각 그룹별 처리
+	  for (const groupName of ["직무 역량", "협업 역량", "자기관리 역량"]) {
+	    const items = iemList[groupName]; // 해당 그룹의 항목들
+
+	    // 해당 그룹의 점수 모으기
+	    const scores = items.map(item => {
+	      // myWrterList에서 같은 mlssIemId + evaleRelate인 점수 찾기
+	      const wrter = myWrterList.find(
+	        w => w.mlssIemId === item.mlssIemId && w.evaleRelate === evaleRelate
+	      );
+	      return wrter ? wrter.score : null;
+	    }).filter(s => s !== null);
+
+	    // 평균 계산
+	    const avg = scores.length > 0
+	      ? scores.reduce((sum, s) => sum + s, 0) / scores.length
+	      : 0;
+
+	    result.push(avg);
+	  }
+
+	  return { name: evaleRelate, data: result };
+	}
+
+
+class ScoreRadioRenderer {
+	  constructor(props) {
+	    this.el = document.createElement('div');	    
+	    const rowKey = props.rowKey;	   
+	    const radioName = props.grid.store.data.filteredRawData[rowKey].mlssIemId;
+
+	    this.el.innerHTML = [1,2,3,4,5].map(v =>
+	      `<label><input type="radio" name="${radioName}" value="${v}">${v}</label>`
+	    ).join(' ');
+
+	    this.el.querySelectorAll('input[type="radio"]').forEach(input => {
+	      input.addEventListener('change', (e) => {
+	        const value = Number(e.target.value);
+	        props.grid.setValue(rowKey, 'score', value);
+	        //console.log('row', rowKey, 'score', value);
+	      });
+	    });
+	  }
+
+	  getElement() {
+	    return this.el;
+	  }
+	}
+			
+let gridColums = [
+    { header: 'ID', name: 'mlssIemId', hidden: true },
+    { header: '평가 항목', name: 'mlssIem', sortable: true, align:'center'},
+    {
+    	  header: '점수',
+    	  name: 'score',
+    	  align: 'center',
+    	  renderer: { type: ScoreRadioRenderer }
+    	}
+];
+
+			let grpTag = $("#yeocRyangGrp");
+			let isRegist = 0;
+			$("#mlssUserRegist").on("click", () => {				
+				let payLoad = {};				
+				let master = {};				
+				let datas = [...grid.getData(), ...grid2.getData(), ...grid3.getData()];	
+				
+				for(let data of datas) {
+					$(`input[name="${data.mlssIemId}"]`).each(function() {
+						  if ($(this).prop("checked")) {
+						    data["score"] = Number($(this).val());						    
+						    data["empId"] = [[${empId}]];			    
+						    if($("#collapseToggle").text() == "본인 평가") {
+						    	data["evaleRelate"] = "본인";
+						    	data["mlssEmpId"] = [[${mlssEmpId}]];
+						    }else if($("#collapseToggle").text() == "상사 평가"){
+						    	data["evaleRelate"] = "상사";
+						    	data["mlssEmpId"] = mlssEmpId;
+						    }else{
+						    	data["evaleRelate"] = "동료";
+						    	data["mlssEmpId"] = mlssEmpId;
+						    }
+						  }
+						});					
+				}
+				datas = datas.filter(data => data.score != null);
+				if(datas.length != 9) {
+					alert("평가를 모두 작성한뒤 제출하세요");
+					return
+				}
+				master["mlssEmpId"] = [[${mlssEmpId}]];
+				master["mlssId"] = [[${mlssId}]];
+				master["empId"] = [[${empId}]];
+				
+				payLoad["master"] = master;
+				payLoad["datas"] = datas;
+				console.log(payLoad);
+				
+				  $.ajax({
+				    url: "/mlssUserRegist",                // 요청 URL
+				    type: "post",                     // GET 방식 (fetch 코드와 동일)
+				    contentType: "application/json",
+				    data: JSON.stringify(payLoad),     // 쿼리 파라미터 자동 변환			        
+				})
+				.done((result) => {
+				    alert("등록되었습니다.");			    
+				})
+				.fail((error) => {
+				    console.error(error);
+				    alert("데이터 요청 중 오류 발생");
+				});  
+				
+			});
+			
+			const stList = [[${stList}]];	
+			let evalUpr = [[${evaleRelateUpr}]];
+			let evalLwr = [[${evaleRelateLwr}]];			
+			for(let v of stList) {			
+				if(v.evaleRelate == "본인"){
+					$("#selfSt").val(v.mlssEmpIdCount*3+"/ 3");				
+				}else if(v.evaleRelate == "상사"){
+					let old = evalUpr.length;					
+					$("#suprrSt").val(v.mlssEmpIdCount+" / "+old)
+				}else{
+					let old = evalLwr.length;
+					$("#crkSt").val(v.mlssEmpIdCount+" / "+old)
+				}
+			}
+			
+			
+			const iemList = [[${iemList}]];
+			console.log(iemList);
+			const gridData = [];
+
+			// 직무 역량 데이터
+		    const jobData = iemList['직무 역량'].map(vo => ({
+		    	mlssIemId: vo.mlssIemId,
+		        ability: vo.ability,
+		        mlssIem: vo.mlssIem
+		    }));
+
+		    // 협업 역량 데이터
+		    const coopData = iemList['협업 역량'].map(vo => ({
+		    	mlssIemId: vo.mlssIemId,
+		        ability: vo.ability,
+		        mlssIem: vo.mlssIem
+		    }));
+
+		    // 자기관리 역량 데이터
+		    const selfData = iemList['자기관리 역량'].map(vo => ({
+		    	mlssIemId: vo.mlssIemId,
+		        ability: vo.ability,
+		        mlssIem: vo.mlssIem
+		    }));
+
+			
+			const grid = new tui.Grid(
+					{
+						el : document.getElementById('toastGrid'),
+						data : jobData,						
+						scrollX : false,
+						scrollY : false,
+						minBodyHeight : 0,
+						autoWidth : true,
+						columns : gridColums
+					});
+
+			// Grid 생성
+			const grid2 = new tui.Grid(
+					{
+						el : document.getElementById('toastGrid2'),
+						data : coopData,						
+						scrollX : false,
+						scrollY : false,
+						minBodyHeight : 0,
+						autoWidth : true,
+						columns : gridColums
+					});
+
+			
+
+			// Grid 생성
+			const grid3 = new tui.Grid(
+					{
+						el : document.getElementById('toastGrid3'),
+						data : selfData,						
+						scrollX : false,
+						scrollY : false,
+						minBodyHeight : 0,
+						autoWidth : true,
+						columns : gridColums
+					});
+			//기존에 평가했다면 내꺼는 페이지 로드시 출력되게 하는 코드
+			let myWrterList = [[${userWrterList}]]			
+			getdbData(myWrterList);
+			function getdbData(val) {				
+				if(val.length == 9){						
+					$("#mlssUserRegist").addClass("stIsShow");
+					}else{$("#mlssUserRegist").removeClass("stIsShow")}
+				for(let myWrter of val) {					
+					$(`input[name="${myWrter.mlssIemId}"]`).each(function(el) {
+						if($(this).val() == myWrter.score) {
+							$(this).prop("checked", true);
+						}
+					});				
+				};
+				console.log(isRegist);
+			}
+			
+			
+			
+			
+			let radarChart;   // 전역 변수로 선언하여 어디서든 접근 가능
+			let pieChart;   // 전역 변수로 선언하여 어디서든 접근 가능
+			let columnChart;   // 전역 변수로 선언하여 어디서든 접근 가능
+			let resultGrid;   // 전역 변수로 선언하여 어디서든 접근 가능
+			    // 3대 역량 그룹 정의
+			    const groupMap = {
+			        "직무 역량": ["업무 이해도", "전문성", "문제 해결 능력"],
+			        "협업 역량": ["의사소통 능력", "협력 태도", "문제해결 및 기여도"],
+			        "자기관리 역량": ["시간 및 업무관리", "자기개발 및 학습태도", "책임감 및 규율 준수"]
+			    };
+			//Rader차트에 쓰이는 함수
+			function makeRadarSeries(resultFinalData) {
+
+
+			    // 본인 / 상사 / 동료 별 그룹 값 저장용
+			    const result = {
+			        "본인":     { "직무 역량": [], "협업 역량": [], "자기관리 역량": [] },
+			        "상사":     { "직무 역량": [], "협업 역량": [], "자기관리 역량": [] },
+			        "동료":     { "직무 역량": [], "협업 역량": [], "자기관리 역량": [] }
+			    };
+
+			    // 항목을 그룹에 매핑
+			    for (const row of resultFinalData) {
+			        const { mlssIem, evaleRelate, score } = row;
+
+			        for (const groupName in groupMap) {
+			            if (groupMap[groupName].includes(mlssIem)) {
+			                result[evaleRelate][groupName].push(score ?? 0);
+			            }
+			        }
+			    }
+
+			    // 그룹 평균 계산 함수
+			    function avg(arr) {
+			        if (arr.length === 0) return 0;
+			        return arr.reduce((a, b) => a + b, 0) / arr.length;
+			    }
+
+			    // radarChart 데이터 구조 제작
+			    return [
+			        {
+			            name: "본인",
+			            data: [
+			                avg(result["본인"]["직무 역량"]),
+			                avg(result["본인"]["협업 역량"]),
+			                avg(result["본인"]["자기관리 역량"])
+			            ]
+			        },
+			        {
+			            name: "상사",
+			            data: [
+			                avg(result["동료"]["직무 역량"]),
+			                avg(result["동료"]["협업 역량"]),
+			                avg(result["동료"]["자기관리 역량"])
+			            ]
+			        },
+			        {
+			            name: "동료",
+			            data: [
+			                avg(result["상사"]["직무 역량"]),
+			                avg(result["상사"]["협업 역량"]),
+			                avg(result["상사"]["자기관리 역량"])
+			            ]
+			        }
+			    ];
+			}
+			
+			//Pie차트에 쓰이는 함수
+			function makePieSeries(resultFinalData) {    
+
+    // 결과 저장 객체
+    const result = {
+        "직무 역량": [],
+        "협업 역량": [],
+        "자기관리 역량": []
+    };
+
+    // 본인 평가만 추출
+    const myList = resultFinalData.filter(row => row.evaleRelate === "본인");
+
+    // 항목을 그룹에 매핑하여 점수 push
+    for (const row of myList) {
+        const { mlssIem, score } = row;
+
+        for (const groupName in groupMap) {
+            if (groupMap[groupName].includes(mlssIem)) {
+                result[groupName].push(score ?? 0);
+            }
+        }
+    }
+
+    // 평균 계산 함수
+    function avg(arr) {
+        if (arr.length === 0) return 0;
+        return arr.reduce((a, b) => a + b, 0) / arr.length;
+    }
+
+    // pieChart series 형태로 변환
+    return [
+        { name: '직무 역량', data: avg(result["직무 역량"]) },
+        { name: '협업 역량', data: avg(result["협업 역량"]) },
+        { name: '자기관리 역량', data: avg(result["자기관리 역량"]) }
+    ];
+}
+
+			
+			//총합 그리드 출력함수
+			function makeGridData(resultFinalData) {
+    const relateTypes = ["본인", "상사", "동료"];
+
+    // 결과 저장용 객체
+    const result = {
+        "본인": { "직무 역량": [], "협업 역량": [], "자기관리 역량": [] },
+        "상사": { "직무 역량": [], "협업 역량": [], "자기관리 역량": [] },
+        "동료": { "직무 역량": [], "협업 역량": [], "자기관리 역량": [] }
+    };
+
+    // row들을 그룹/평가자별로 분배
+    for (const row of resultFinalData) {
+        const { evaleRelate, mlssIem, score } = row;
+
+        if (!relateTypes.includes(evaleRelate)) continue;
+
+        for (const groupName in groupMap) {
+            if (groupMap[groupName].includes(mlssIem)) {
+                result[evaleRelate][groupName].push(score ?? 0);
+            }
+        }
+    }
+
+    // 평균 계산 함수
+    function avg(arr) {
+        if (arr.length === 0) return 0;
+        return arr.reduce((a, b) => a + b, 0) / arr.length;
+    }
+
+    // 각 평가자별 총 평균 (3개 역량 평균을 모두 합침)
+    const totalAvg = {};
+
+    relateTypes.forEach(type => {
+        const job = avg(result[type]["직무 역량"]);
+        const coop = avg(result[type]["협업 역량"]);
+        const self = avg(result[type]["자기관리 역량"]);
+
+        totalAvg[type] = Number(((job + coop + self)/3).toFixed(2));
+    });
+
+    // 조직 평균 (= 상사 + 동료 평균)
+    const groupAvgScore = Number(((totalAvg["상사"] + totalAvg["동료"]) / 2).toFixed(2));
+
+    // 본인의 조직 대비 점수 차이
+    const groupReadinessScore = Number((totalAvg["본인"] - groupAvgScore).toFixed(2));
+
+    // Grid에 넣을 최종 데이터
+    return [{
+        id: 1,
+        fin: "총 합계 평균점수",
+        self: totalAvg["본인"],
+        suprr: totalAvg["상사"],
+        crk: totalAvg["동료"],
+        groupAvgScore: groupAvgScore,
+        groupReadinessScore: groupReadinessScore
+    }];
+}
+
+
+
+			function showRadarChart() {
+				const radarEl = document.getElementById('radar');
+			    const pieEl = document.getElementById('pie');
+			    const columnEl = document.getElementById('column');
+			    const gridEl = document.getElementById('toastGrid4');
+				
+			    if (radarChart) radarChart.destroy(); 
+			    
+			    if (pieChart) pieChart.destroy(); 
+			    
+			    if (resultGrid) resultGrid.destroy(); 
+			    
+			    if (columnChart) columnChart.destroy();
+			    //makeRadarData(iemList, myWrterList, "본인")
+			    
+			    const radarSeries = makeRadarSeries(resultFinalData);
+			    
+			    radarChart = toastui.Chart.radarChart({
+			        el: radarEl,
+			        data: {
+			            categories: ['직무 역량', '협업 역량', '자기관리 역량'],
+			            series: radarSeries
+			        },
+			        options: {
+			            series: { showArea: true },
+			            chart: {
+				            width: 600,   // 원하는 너비
+				            height: 600   // 원하는 높이
+				          }
+			        },		        
+			    });	
+			    
+			    const pieSeries = makePieSeries(resultFinalData);
+			    
+			    pieChart = toastui.Chart.pieChart({
+			        el: pieEl,
+			        data: {
+			            series: pieSeries
+			        },
+			        options: {
+			            chart: {
+			                title: '본인 역량 비율'
+			            }
+			        }
+			    });
+			    
+			 // 원하는 category 순서
+			    const categories = [
+			      '업무 이해도', '전문성', '문제 해결 능력',
+			      '의사소통 능력', '협력 태도', '문제해결 및 기여도',
+			      '시간 및 업무관리', '자기개발 및 학습태도', '책임감 및 규율 준수'
+			    ];
+			    
+			 // 초기값
+			    const selfData = Array(categories.length).fill(0);
+			    const suprrData = Array(categories.length).fill(0);
+			    const crkData = Array(categories.length).fill(0);
+
+			    // 데이터 매핑
+			    resultFinalData.forEach(item => {
+			      const idx = categories.indexOf(item.mlssIem);
+			      if (idx === -1) return;
+
+			      if (item.evaleRelate === '본인') {
+			        selfData[idx] = item.score ?? 0;
+			      } else if (item.evaleRelate === '상사') {
+			        suprrData[idx] = item.score ?? 0;
+			      } else if (item.evaleRelate === '동료') {
+			        crkData[idx] = item.score ?? 0;
+			      }
+			    });
+			    
+			    columnChart = toastui.Chart.columnChart({
+			        el: columnEl,
+			        data: {
+			            categories: categories,
+			            series: [
+			              {
+			                name: '본인',
+			                data: selfData
+			              },
+			              {
+			                name: '상사',
+			                data: crkData
+			              },
+			              {
+			                name: '동료',
+			                data: suprrData
+			              }
+			            ]
+			          },
+			        options: {
+			            chart: { title: '역량별 세부 항목 점수' },
+			            yAxis: { title: '점수' },
+			            xAxis: { title: '역량 그룹' },
+			            width: 900,
+			            height: 400
+			        }			        
+			    });
+			    
+			    const gridData = makeGridData(resultFinalData);
+
+				// Grid 생성
+				resultGrid = new tui.Grid(
+						{
+							el : gridEl,
+							data : gridData,
+							scrollX : false,
+							scrollY : false,
+							minBodyHeight : 0,
+							autoWidth : true,
+							columns : [{
+										header : '다면평가 종합점수',
+										name : 'fin',
+										sortable : true
+										},
+										{
+											header : '본인',
+											name : 'self',
+											align : 'left',												
+										},{
+											header : '상사',
+											name : 'crk',
+											align : 'left',												
+										},{
+											header : '동료',
+											name : 'suprr',
+											align : 'left',												
+										},{
+											header : '조직평균',
+											name : 'groupAvgScore',
+											align : 'left',												
+										},{
+											header : '조직대비',
+											name : 'groupReadinessScore',
+											align : 'left',												
+										},]
+						});
+
+
+			}
+
+		</script>
+
+	
+
+
+</body>
+
+</html>

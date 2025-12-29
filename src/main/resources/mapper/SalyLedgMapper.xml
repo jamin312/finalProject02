@@ -1,0 +1,229 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+  PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="store.yd2team.insa.mapper.SalyLedgMapper">
+
+  <!-- ================= 모달: 사원 목록 ================= -->
+  <select id="selectEmpListForSaly" resultType="store.yd2team.insa.service.EmpVO">
+    SELECT
+      e.emp_id        AS empId,
+      e.dept_id       AS deptId,
+      d.dept_nm       AS deptNm,
+      e.vend_id       AS vendId,
+      e.nm            AS nm,
+      e.emplym_ty     AS emplymTy,
+      c.code_nm       AS emplymTyNm,
+      e.clsf          AS clsf,
+      e.rspofc        AS rspofc,
+      e.hffc_st       AS hffcSt
+    FROM tb_emp e
+       JOIN tb_dept d
+         ON d.dept_id = e.dept_id
+       LEFT JOIN tb_code c
+         ON c.code_id = e.emplym_ty
+    WHERE e.vend_id = #{vendId}
+      AND e.hffc_st = 'n1'
+    <if test="deptId != null and deptId != ''">
+      AND e.dept_id = #{deptId}
+    </if>
+    <if test="empNm != null and empNm != ''">
+      AND e.nm LIKE '%' || #{empNm} || '%'
+    </if>
+    ORDER BY d.dept_nm, e.nm
+  </select>
+
+  <!-- ================= 급여대장 ID 채번 ================= -->
+  <select id="selectNewSalyLedgId"
+          resultType="string"
+          useCache="false"
+          flushCache="true">
+    SELECT 'SL_' || TO_CHAR(SYSDATE, 'YYYYMMDD') || '_' ||
+           LPAD(seq_saly_ledg.NEXTVAL, 4, '0')
+      FROM dual
+  </select>
+
+  <!-- ================= 명세서 ID 채번 ================= -->
+  <select id="selectNewSalySpecId"
+          resultType="string"
+          useCache="false"
+          flushCache="true">
+    SELECT 'SP_' || TO_CHAR(SYSDATE, 'YYYYMMDD') || '_' ||
+           LPAD(seq_saly_spec.NEXTVAL, 4, '0')
+      FROM dual
+  </select>
+
+  <!-- ================= 급여대장 목록 ================= -->
+  <select id="selectSalyLedgList"
+          resultType="store.yd2team.insa.service.SalyLedgVO">
+    SELECT
+      s.saly_ledg_id                 AS salyLedgId,
+      s.saly_ledg_nm                 AS salyLedgNm,
+      TO_CHAR(s.revs_ym,'YYYY-MM')   AS revsYm,
+      s.saly_ledg_st                 AS salyLedgSt,
+      c_st.code_nm                   AS salyLedgStNm,
+      TO_CHAR(s.pay_dt,'YYYY-MM-DD') AS payDt,
+      s.rcnt                         AS rcnt,
+      s.tt_pay_amt                   AS ttPayAmt,
+      s.crea_dt                      AS creaDt,
+      s.crea_by                      AS creaBy,
+      s.updt_dt                      AS updtDt,
+      s.updt_by                      AS updtBy,
+      s.vend_id                      AS vendId
+    FROM tb_saly_ledg s
+       LEFT JOIN tb_code c_st
+         ON c_st.code_id = s.saly_ledg_st
+    WHERE s.vend_id = #{vendId}
+    <if test="salyLedgNm != null and salyLedgNm != ''">
+      AND s.saly_ledg_nm LIKE '%' || #{salyLedgNm} || '%'
+    </if>
+    <if test="payDtStart != null and payDtStart != ''">
+      AND s.pay_dt &gt;= TO_DATE(#{payDtStart}, 'YYYY-MM-DD')
+    </if>
+    <if test="payDtEnd != null and payDtEnd != ''">
+      AND s.pay_dt &lt;= TO_DATE(#{payDtEnd}, 'YYYY-MM-DD')
+    </if>
+    ORDER BY s.revs_ym DESC, s.pay_dt DESC, s.saly_ledg_id DESC
+  </select>
+
+  <!-- ================= 급여대장 단건 ================= -->
+  <select id="selectSalyLedgById" resultType="store.yd2team.insa.service.SalyLedgVO">
+    SELECT
+      s.saly_ledg_id                 AS salyLedgId,
+      s.saly_ledg_nm                 AS salyLedgNm,
+      TO_CHAR(s.revs_ym,'YYYY-MM')   AS revsYm,
+      s.saly_ledg_st                 AS salyLedgSt,
+      c_st.code_nm                   AS salyLedgStNm,
+      TO_CHAR(s.pay_dt,'YYYY-MM-DD') AS payDt,
+      s.rcnt                         AS rcnt,
+      s.tt_pay_amt                   AS ttPayAmt,
+      s.crea_dt                      AS creaDt,
+      s.crea_by                      AS creaBy,
+      s.updt_dt                      AS updtDt,
+      s.updt_by                      AS updtBy,
+      s.vend_id                      AS vendId
+    FROM tb_saly_ledg s
+       LEFT JOIN tb_code c_st
+         ON c_st.code_id = s.saly_ledg_st
+    WHERE s.saly_ledg_id = #{salyLedgId}
+  </select>
+
+  <!-- ================= 급여대장에 포함된 사원 ID ================= -->
+  <select id="selectEmpIdListByLedgId" resultType="string">
+    SELECT emp_id
+      FROM tb_saly_spec
+     WHERE saly_ledg_id = #{salyLedgId}
+  </select>
+
+  <!-- ================= 급여대장 INSERT ================= -->
+  <insert id="insertSalyLedg" parameterType="store.yd2team.insa.service.SalyLedgVO">
+    INSERT INTO tb_saly_ledg (
+      saly_ledg_id,
+      saly_ledg_nm,
+      revs_ym,
+      saly_ledg_st,
+      pay_dt,
+      rcnt,
+      tt_pay_amt,
+      crea_dt,
+      crea_by,
+      vend_id
+    ) VALUES (
+      #{salyLedgId},
+      #{salyLedgNm},
+      TO_DATE(#{revsYm}, 'YYYY-MM'),
+      NVL(#{salyLedgSt}, 'sal1'),
+      TO_DATE(#{payDt}, 'YYYY-MM-DD'),
+      #{rcnt},
+      #{ttPayAmt},
+      SYSDATE,
+      #{creaBy},
+      #{vendId}
+    )
+  </insert>
+
+  <!-- ================= 급여대장 UPDATE ================= -->
+  <update id="updateSalyLedg" parameterType="store.yd2team.insa.service.SalyLedgVO">
+    UPDATE tb_saly_ledg
+       SET saly_ledg_nm = #{salyLedgNm},
+           revs_ym      = TO_DATE(#{revsYm}, 'YYYY-MM'),
+           pay_dt       = TO_DATE(#{payDt}, 'YYYY-MM-DD'),
+           rcnt         = #{rcnt},
+           tt_pay_amt   = #{ttPayAmt},
+           saly_ledg_st = NVL(#{salyLedgSt}, saly_ledg_st),
+           updt_dt      = SYSDATE,
+           updt_by      = #{updtBy}
+     WHERE saly_ledg_id = #{salyLedgId}
+  </update>
+
+  <!-- ================= 급여대장 삭제 ================= -->
+  <delete id="deleteSalyLedg">
+    DELETE FROM tb_saly_ledg
+     WHERE saly_ledg_id = #{salyLedgId}
+  </delete>
+
+  <!-- ================= 명세서 삭제 ================= -->
+  <delete id="deleteSalySpecByLedgId">
+    DELETE FROM tb_saly_spec
+     WHERE saly_ledg_id = #{salyLedgId}
+  </delete>
+
+  <!-- ================= 명세서 INSERT(여러 건) ================= -->
+  <insert id="insertSalySpecList">
+    INSERT ALL
+    <foreach collection="list" item="item">
+      INTO tb_saly_spec (
+        saly_spec_id,
+        emp_id,
+        saly_ledg_id,
+        pay_amt,
+        tt_duc_amt,
+        act_pay_amt,
+        crea_dt,
+        crea_by
+      ) VALUES (
+        #{item.salySpecId},
+        #{item.empId},
+        #{item.salyLedgId},
+        NVL(#{item.payAmt}, 0),
+        NVL(#{item.ttDucAmt}, 0),
+        NVL(#{item.actPayAmt}, 0),
+        SYSDATE,
+        #{item.creaBy}
+      )
+    </foreach>
+    SELECT 1 FROM DUAL
+  </insert>
+<!-- ✅ 명세서항목(tb_saly_spec_item) 먼저 삭제 -->
+<delete id="deleteSalySpecItemByLedgId">
+  DELETE FROM tb_saly_spec_item
+   WHERE saly_spec_id IN (
+     SELECT saly_spec_id
+       FROM tb_saly_spec
+      WHERE saly_ledg_id = #{salyLedgId}
+   )
+</delete>
+<!-- ✅ 급여 미계산 명세서 개수 -->
+<select id="countUncalculatedSpec" resultType="int">
+  SELECT COUNT(*)
+    FROM tb_saly_spec s
+    JOIN tb_saly_ledg l
+      ON l.saly_ledg_id = s.saly_ledg_id
+   WHERE s.saly_ledg_id = #{salyLedgId}
+     AND l.vend_id      = #{vendId}
+     AND NVL(s.act_pay_amt, 0) = 0
+</select>
+
+<!-- ✅ 급여대장 상태 변경 -->
+<update id="updateSalyLedgStatus">
+  UPDATE tb_saly_ledg
+     SET saly_ledg_st = #{salyLedgSt},
+         updt_dt      = SYSDATE,
+         updt_by      = #{updtBy}
+   WHERE saly_ledg_id = #{salyLedgId}
+     AND vend_id      = #{vendId}
+</update>
+
+
+</mapper>

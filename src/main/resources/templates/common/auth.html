@@ -1,0 +1,929 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml"
+      xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layout}">
+<head>
+  <meta charset="UTF-8">
+  <title>역할 권한 설정</title>
+
+  <!-- Toast UI Grid -->
+  <link rel="stylesheet"
+        href="https://uicdn.toast.com/grid/latest/tui-grid.css" />
+  <script src="https://uicdn.toast.com/grid/latest/tui-grid.js"></script>
+
+  <style>
+    .role-auth-wrapper #roleGrid,
+    .role-auth-wrapper #authGridHr,
+    .role-auth-wrapper #authGridSales,
+    .role-auth-wrapper #authGridCommon {
+      width: 100%;
+      margin-top: 6px;
+    }
+
+    .role-auth-wrapper .card-title {
+      font-weight: 600;
+    }
+
+    .role-auth-wrapper .section-title {
+      font-size: 15px;
+      font-weight: 600;
+    }
+
+    .accordion-header-inner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      width: 100%;
+    }
+
+    .accordion-header-inner .accordion-button {
+      flex-grow: 1;
+    }
+
+    .quick-setting-dropdown .dropdown-toggle {
+      border-radius: .25rem;
+      border: 1px solid #ced4da;
+      background-color: #fff;
+      color: #495057;
+      font-size: .875rem;
+      padding: .25rem .5rem;
+    }
+
+    .quick-setting-dropdown .dropdown-toggle::after {
+      margin-left: .5rem;
+    }
+
+    .quick-setting-dropdown .dropdown-menu {
+      min-width: 180px;
+      padding: 8px 12px;
+    }
+
+    .quick-setting-dropdown .dropdown-menu .form-check {
+      padding-left: 0;
+      margin-bottom: 4px;
+    }
+
+    .quick-setting-dropdown .dropdown-menu .form-check-input {
+      position: static;
+      margin-left: 0;
+      margin-right: 6px;
+    }
+    
+    .role-auth-wrapper .tui-grid-cell.sys-role {
+	  background-color: #ffffff !important;
+	  color: #999 !important;
+	}
+  </style>
+</head>
+
+<body layout:fragment="content">
+<div class="role-auth-wrapper">
+
+  <!-- ==========================
+       역할 조회 영역
+       ========================== -->
+  <div class="row">
+    <div class="col-md-12 mb-3">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-header-left">
+            <h5 class="card-title">역할 조회</h5>
+          </div>
+          <div class="card-header-right">
+            <button id="btnRoleReset" class="btn btn-dark" type="button">초기화</button>
+            <button id="btnRoleSearch" class="btn btn-outline-dark" type="button">조회</button>
+          </div>
+        </div>
+
+        <div class="card-body">
+          <div class="row mb-2">
+
+            <!-- 역할 명 + 자동완성 -->
+            <div class="col-md-3">
+              <label for="roleName" class="form-label">역할 명</label>
+              <div class="position-relative">
+                <input id="roleName"
+                       type="text"
+                       class="form-control"
+                       placeholder="인사 담당"
+                       autocomplete="off">
+                <ul id="roleNameSuggest"
+                    class="list-group position-absolute w-100"
+                    style="z-index: 2000;">
+                </ul>
+              </div>
+            </div>
+
+            <!-- 역할 유형 + 자동완성 -->
+            <div class="col-md-3">
+			  <label for="roleType" class="form-label">역할 유형</label>
+			  <select id="roleType" class="form-select">
+			    <option value="">전체</option>
+			    <option value="d1">인사</option>
+			    <option value="d2">공통</option>
+			    <option value="d3">영업</option>
+			  </select>
+			</div>
+
+            <!-- 사용 여부 -->
+            <div class="col-md-3">
+              <label for="useYn" class="form-label">사용 여부</label>
+              <select id="useYn" class="form-select">
+                <option value="">전체</option>
+                <option value="e1">사용</option>
+                <option value="e2">미사용</option>
+              </select>
+            </div>
+
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- ==========================
+       역할 목록 / 권한 설정
+       ========================== -->
+  <div class="row">
+    <!-- 역할 목록 -->
+    <div class="col-md-6">
+      <div class="card mb-3">
+
+        <div class="card-header">
+          <div class="card-header-left">
+            <h5 class="card-title">역할 목록</h5>
+          </div>
+          <div class="card-header-right">
+            <!-- <button id="btnRoleAdd" type="button" class="btn btn-outline-dark me-2">행 추가</button> -->
+            <div th:replace="~{fragments/buttons :: addRowButton('MENU_COMM_004', 'btnRoleAdd')}"></div>
+            <!-- <button id="btnRoleSave" type="button" class="btn btn-outline-dark">저장</button> -->
+            <div th:replace="~{fragments/buttons :: saveButton('MENU_COMM_004', 'btnRoleSave')}"></div>
+          </div>
+        </div>
+
+        <div class="card-body">
+          <div id="roleGrid"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 권한 설정 -->
+    <div class="col-md-6">
+      <div class="card mb-3">
+
+        <div class="card-header">
+          <div class="card-header-left">
+            <h5 class="card-title">권한 설정</h5>
+          </div>
+          <div class="card-header-right">
+            <!-- <button id="btnAuthSave" type="button" class="btn btn-outline-dark">저장</button> -->
+            <div th:replace="~{fragments/buttons :: saveButton('MENU_COMM_004', 'btnAuthSave')}"></div>
+          </div>
+        </div>
+
+        <div class="card-body">
+          <div class="accordion" id="authAccordion">
+
+            <!-- 인사/급여 (d1) -->
+            <div class="accordion-item">
+              <h2 class="accordion-header" id="headingHr">
+                <div class="accordion-header-inner">
+                  <button class="accordion-button collapsed"
+                          type="button"
+                          data-bs-toggle="collapse"
+                          data-bs-target="#collapseHr"
+                          aria-expanded="true"
+                          aria-controls="collapseHr">
+                    인사/급여
+                  </button>
+
+                  <div class="dropdown quick-setting-dropdown">
+                    <button class="btn dropdown-toggle btn-sm"
+                            type="button"
+                            data-bs-toggle="dropdown"
+                            aria-expanded="false">
+                      빠른 설정
+                    </button>
+                    <div class="dropdown-menu dropdown-menu-end p-2">
+                      <div class="form-check">
+                        <input class="form-check-input quick-bulk-check"
+                               type="checkbox"
+                               value="readAll"
+                               id="qs-hr-read"
+                               data-grid="hr">
+                        <label class="form-check-label" for="qs-hr-read">
+                          조회 일괄 적용
+                        </label>
+                      </div>
+                      <div class="form-check">
+                        <input class="form-check-input quick-bulk-check"
+                               type="checkbox"
+                               value="saveAll"
+                               id="qs-hr-save"
+                               data-grid="hr">
+                        <label class="form-check-label" for="qs-hr-save">
+                          저장/수정 일괄 적용
+                        </label>
+                      </div>
+                      <div class="form-check">
+                        <input class="form-check-input quick-bulk-check"
+                               type="checkbox"
+                               value="deleteAll"
+                               id="qs-hr-delete"
+                               data-grid="hr">
+                        <label class="form-check-label" for="qs-hr-delete">
+                          삭제 일괄 적용
+                        </label>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </h2>
+              <div id="collapseHr"
+                   class="accordion-collapse collapse"
+                   aria-labelledby="headingHr"
+                   data-bs-parent="#authAccordion">
+                <div class="accordion-body">
+                  <div id="authGridHr"></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- 영업 (d3) -->
+            <div class="accordion-item">
+              <h2 class="accordion-header" id="headingSales">
+                <div class="accordion-header-inner">
+                  <button class="accordion-button collapsed"
+                          type="button"
+                          data-bs-toggle="collapse"
+                          data-bs-target="#collapseSales"
+                          aria-expanded="false"
+                          aria-controls="collapseSales">
+                    영업
+                  </button>
+
+                  <div class="dropdown quick-setting-dropdown">
+                    <button class="btn dropdown-toggle btn-sm"
+                            type="button"
+                            data-bs-toggle="dropdown"
+                            aria-expanded="false">
+                      빠른 설정
+                    </button>
+                    <div class="dropdown-menu dropdown-menu-end p-2">
+                      <div class="form-check">
+                        <input class="form-check-input quick-bulk-check"
+                               type="checkbox"
+                               value="readAll"
+                               id="qs-sales-read"
+                               data-grid="sales">
+                        <label class="form-check-label" for="qs-sales-read">
+                          조회 일괄 적용
+                        </label>
+                      </div>
+                      <div class="form-check">
+                        <input class="form-check-input quick-bulk-check"
+                               type="checkbox"
+                               value="saveAll"
+                               id="qs-sales-save"
+                               data-grid="sales">
+                        <label class="form-check-label" for="qs-sales-save">
+                          저장/수정 일괄 적용
+                        </label>
+                      </div>
+                      <div class="form-check">
+                        <input class="form-check-input quick-bulk-check"
+                               type="checkbox"
+                               value="deleteAll"
+                               id="qs-sales-delete"
+                               data-grid="sales">
+                        <label class="form-check-label" for="qs-sales-delete">
+                          삭제 일괄 적용
+                        </label>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </h2>
+              <div id="collapseSales"
+                   class="accordion-collapse collapse"
+                   aria-labelledby="headingSales"
+                   data-bs-parent="#authAccordion">
+                <div class="accordion-body">
+                  <div id="authGridSales"></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- 공통 (d2) -->
+            <div class="accordion-item">
+              <h2 class="accordion-header" id="headingCommon">
+                <div class="accordion-header-inner">
+                  <button class="accordion-button collapsed"
+                          type="button"
+                          data-bs-toggle="collapse"
+                          data-bs-target="#collapseCommon"
+                          aria-expanded="false"
+                          aria-controls="collapseCommon">
+                    공통
+                  </button>
+
+                  <div class="dropdown quick-setting-dropdown">
+                    <button class="btn dropdown-toggle btn-sm"
+                            type="button"
+                            data-bs-toggle="dropdown"
+                            aria-expanded="false">
+                      빠른 설정
+                    </button>
+                    <div class="dropdown-menu dropdown-menu-end p-2">
+                      <div class="form-check">
+                        <input class="form-check-input quick-bulk-check"
+                               type="checkbox"
+                               value="readAll"
+                               id="qs-common-read"
+                               data-grid="common">
+                        <label class="form-check-label" for="qs-common-read">
+                          조회 일괄 적용
+                        </label>
+                      </div>
+                      <div class="form-check">
+                        <input class="form-check-input quick-bulk-check"
+                               type="checkbox"
+                               value="saveAll"
+                               id="qs-common-save"
+                               data-grid="common">
+                        <label class="form-check-label" for="qs-common-save">
+                          저장/수정 일괄 적용
+                        </label>
+                      </div>
+                      <div class="form-check">
+                        <input class="form-check-input quick-bulk-check"
+                               type="checkbox"
+                               value="deleteAll"
+                               id="qs-common-delete"
+                               data-grid="common">
+                        <label class="form-check-label" for="qs-common-delete">
+                          삭제 일괄 적용
+                        </label>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </h2>
+              <div id="collapseCommon"
+                   class="accordion-collapse collapse"
+                   aria-labelledby="headingCommon"
+                   data-bs-parent="#authAccordion">
+                <div class="accordion-body">
+                  <div id="authGridCommon"></div>
+                </div>
+              </div>
+            </div>
+
+          </div> <!-- /accordion -->
+        </div> <!-- /card-body -->
+
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+
+    let currentRoleId = null;
+    let currentRoleRowKey = null;
+    let currentRoleIsSystem = false;
+	
+    const ROLE_TYPE_ITEMS = [
+        { text: '인사', value: 'd1' },   
+        { text: '공통', value: 'd2' },  
+        { text: '영업', value: 'd3' }    
+      ];
+    
+    const roleGridOptions = {
+	     bodyHeight: 440,
+	     rowHeight: 32,
+	     scrollX: false,
+	     scrollY: true,
+	     rowHeaders: ['rowNum'],
+	     columnOptions: {
+	       minWidth: 80,
+	       resizable: true
+	     }
+	   };
+    
+    const authGridOptions = {
+      bodyHeight: 240,
+      rowHeight: 32,
+      scrollX: false,
+      scrollY: true,
+      rowHeaders: ['rowNum'],
+      columnOptions: {
+        minWidth: 80,
+        resizable: true
+      }
+    };
+
+    if (!window.tui || !tui.Grid) {
+      return;
+    }
+
+    // ==========================
+    // 1. 역할 목록 Grid
+    // ==========================
+    const roleGrid = new tui.Grid({
+      el: document.getElementById('roleGrid'),
+      data: [],
+      ...roleGridOptions,
+      rowClassName: function (row) {
+    	    // vendId 가 없으면 공통(시스템) 역할
+    	    return row.vendId ? '' : 'sys-role';
+    	  },
+      columns: [
+    	  { header: '역할 ID', name: 'roleId', hidden: true },
+
+    	  {
+    	    header: '역할 명',
+    	    name: 'roleNm',
+    	    editor: 'text'
+    	  },
+    	  {
+    	    header: '역할 유형',
+    	    name: 'roleTy',
+    	    editor: {
+    	      type: 'select',
+    	      options: { listItems: ROLE_TYPE_ITEMS }
+    	    },
+    	    formatter: function ({ value }) {
+    	      const item = ROLE_TYPE_ITEMS.find(i => i.value === value);
+    	      return item ? item.text : value;
+    	    }
+    	  },
+    	  {
+    	    header: '역할 설명',
+    	    name: 'roleDc',
+    	    editor: 'text'
+    	  },
+    	  {
+    	    header: '사용 여부',
+    	    name: 'yn',
+    	    editor: {
+    	      type: 'select',
+    	      options: {
+    	        listItems: [
+    	          { text: '사용', value: 'e1' },
+    	          { text: '미사용', value: 'e2' }
+    	        ]
+    	      }
+    	    },
+    	    formatter: function ({ value }) {
+    	      if (value === 'e1') return '사용';
+    	      if (value === 'e2') return '미사용';
+    	      return value;
+    	    }
+    	  }
+    	]
+    });
+
+    // 필수 헤더(*) 표시
+    if (window.TeamCommon && TeamCommon.grid && TeamCommon.grid.applyRequiredHeaders) {
+      TeamCommon.grid.applyRequiredHeaders([
+        { gridId: 'roleGrid', columns: ['roleNm', 'roleTy', 'yn'] }
+      ]);
+    }
+
+    // ==========================
+    // 2. 권한 Grid들
+    // ==========================
+    function createAuthGrid(elId) {
+      return new tui.Grid({
+        el: document.getElementById(elId),
+        data: [],
+        ...authGridOptions,
+        columns: [
+          { header: '메뉴ID', name: 'menuId', hidden: true },
+          { header: '메뉴 / 화면', name: 'menuNm', minWidth: 220 },
+          {
+            header: '조회',
+            name: 'selYn',
+            align: 'center',
+            formatter: ({ value }) =>
+              '<input type="checkbox" ' + (value === 'e1' ? 'checked' : '') + ' />'
+          },
+          {
+            header: '저장 / 수정',
+            name: 'insYn',
+            align: 'center',
+            formatter: ({ value }) =>
+              '<input type="checkbox" ' + (value === 'e1' ? 'checked' : '') + ' />'
+          },
+          {
+            header: '삭제',
+            name: 'delYn',
+            align: 'center',
+            formatter: ({ value }) =>
+              '<input type="checkbox" ' + (value === 'e1' ? 'checked' : '') + ' />'
+          }
+        ]
+      });
+    }
+
+    const authGridHr     = createAuthGrid('authGridHr');
+    const authGridSales  = createAuthGrid('authGridSales');
+    const authGridCommon = createAuthGrid('authGridCommon');
+
+    const moduleGridMap = {
+      hr:     { grid: authGridHr,     moduleId: 'd1' },
+      sales:  { grid: authGridSales,  moduleId: 'd3' },
+      common: { grid: authGridCommon, moduleId: 'd2' }
+    };
+
+    // ==========================
+    // 3. 빠른 설정 체크박스
+    // ==========================
+    function syncQuickCheckboxes(grid, gridKey) {
+      if (!grid) return;
+
+      const rows = grid.getData();
+      const allRead   = rows.length > 0 && rows.every(r => r.selYn === 'e1');
+      const allSave   = rows.length > 0 && rows.every(r => r.insYn === 'e1');
+      const allDelete = rows.length > 0 && rows.every(r => r.delYn === 'e1');
+
+      const qsRead   = document.querySelector('#qs-' + gridKey + '-read');
+      const qsSave   = document.querySelector('#qs-' + gridKey + '-save');
+      const qsDelete = document.querySelector('#qs-' + gridKey + '-delete');
+
+      if (qsRead)   qsRead.checked   = allRead;
+      if (qsSave)   qsSave.checked   = allSave;
+      if (qsDelete) qsDelete.checked = allDelete;
+    }
+
+    function applyBulkSetting(grid, action, checked) {
+      if (!grid) return;
+
+      const val = checked ? 'e1' : 'e2';
+      const rows = grid.getData().map(function (row) {
+        if (action === 'readAll')   row.selYn = val;
+        if (action === 'saveAll')   row.insYn = val;
+        if (action === 'deleteAll') row.delYn = val;
+        return row;
+      });
+
+      grid.resetData(rows);
+    }
+
+    document.querySelectorAll('.quick-bulk-check').forEach(function (cb) {
+      cb.addEventListener('change', function (e) {
+        const gridKey = e.target.dataset.grid;
+        const action  = e.target.value;
+        const checked = e.target.checked;
+
+        const info = moduleGridMap[gridKey];
+        if (!info) return;
+
+        applyBulkSetting(info.grid, action, checked);
+        syncQuickCheckboxes(info.grid, gridKey);
+      });
+    });
+
+    function setupGridClickSync(grid, gridKey) {
+      grid.on('click', function (ev) {
+        const col = ev.columnName;
+        const rowKey = ev.rowKey;
+        if (rowKey == null) return;
+        if (['selYn', 'insYn', 'delYn'].indexOf(col) === -1) return;
+
+        const current = grid.getValue(rowKey, col);
+        const nextVal = current === 'e1' ? 'e2' : 'e1';
+        grid.setValue(rowKey, col, nextVal, false);
+
+        syncQuickCheckboxes(grid, gridKey);
+      });
+    }
+
+    setupGridClickSync(authGridHr, 'hr');
+    setupGridClickSync(authGridSales, 'sales');
+    setupGridClickSync(authGridCommon, 'common');
+
+    // 아코디언 열릴 때 레이아웃 재계산 (옛날 코드 resize 문제 해결 패턴)
+    $('#collapseHr, #collapseSales, #collapseCommon')
+      .on('shown.bs.collapse', function (e) {
+        const id = e.target.id;
+        setTimeout(function () {
+          if (id === 'collapseHr') {
+            authGridHr.refreshLayout();
+          } else if (id === 'collapseSales') {
+            authGridSales.refreshLayout();
+          } else if (id === 'collapseCommon') {
+            authGridCommon.refreshLayout();
+          }
+        }, 0);
+      });
+
+    // 초기 한 번 전체 그리드 레이아웃 보정 (HR 섹션은 show 상태라 shown 이벤트가 안 뜨기 때문)
+    setTimeout(function () {
+      authGridHr.refreshLayout();
+      authGridSales.refreshLayout();
+      authGridCommon.refreshLayout();
+    }, 0);
+
+    // ==========================
+    // 4. 자동완성 (TeamCommon.autocomplete)
+    // ==========================
+    if (window.TeamCommon && TeamCommon.autocomplete && TeamCommon.autocomplete.init) {
+      // 역할 명 자동완성
+      TeamCommon.autocomplete.init({
+        inputSelector: '#roleName',
+        listSelector: '#roleNameSuggest',
+        url: '/api/auth/roles/nameSuggest',
+        paramName: 'keyword',
+        minLength: 1,
+        preventClose: true,
+        mapResponse: function (item) {
+          return {
+            id: item.roleId,
+            label: item.roleNm,
+            value: item.roleNm
+          };
+        },
+        onSelect: function (item) {
+          $('#roleName').val(item.value);
+        }
+      });
+    }
+
+    // ==========================
+    // 5. AJAX: 역할 / 권한 조회
+    // ==========================
+    function loadRoleList() {
+      const params = {
+        roleNm: $('#roleName').val() || '',
+        roleTy: $('#roleType').val() || '',
+        useYn:  $('#useYn').val()    || ''
+      };
+
+      $.getJSON('/api/auth/roles', params, function (data) {
+        roleGrid.resetData(data || []);
+		
+        const rowCount = roleGrid.getRowCount();
+        for (let rk = 0; rk < rowCount; rk++) {
+          const row = roleGrid.getRow(rk);
+          if (!row) continue;
+
+          if (!row.vendId) {
+            roleGrid.addRowClassName(rk, 'sys-role');
+          } else {
+            roleGrid.removeRowClassName(rk, 'sys-role');
+          }
+        }
+        
+        const rows = roleGrid.getData();
+        if (rows.length > 0) {
+          currentRoleId = rows[0].roleId;
+          loadAllAuthGrids(currentRoleId);
+        } else {
+          currentRoleId = null;
+          // 메뉴는 그대로 두고 싶으면 아래 resetData 부분은 지워도 됨
+          loadAllAuthGrids(currentRoleId);
+        }
+      }).fail(function (xhr) {
+        console.error('역할 목록 조회 실패', xhr);
+      });
+    }
+
+    function loadAuthGridByModule(roleId, gridKey) {
+      const info = moduleGridMap[gridKey];
+      if (!info) return;
+
+      const params = {
+        moduleId: info.moduleId,
+        roleId: roleId || ''   // roleId 없으면 빈 문자열로 전달
+      };
+
+      $.getJSON('/api/auth/menus', params, function (data) {
+        info.grid.resetData(data || []);
+        syncQuickCheckboxes(info.grid, gridKey);
+        info.grid.refreshLayout();   // 데이터 로딩 후 바로 레이아웃 보정
+      }).fail(function (xhr) {
+        console.error('권한 목록 조회 실패 [' + gridKey + ']', xhr);
+        info.grid.resetData([]);
+        syncQuickCheckboxes(info.grid, gridKey);
+        info.grid.refreshLayout();
+      });
+    }
+
+    function loadAllAuthGrids(roleId) {
+      loadAuthGridByModule(roleId, 'hr');
+      loadAuthGridByModule(roleId, 'sales');
+      loadAuthGridByModule(roleId, 'common');
+    }
+
+    // ==========================
+    // 6. 버튼/이벤트 바인딩
+    // ==========================
+
+    // 조회 버튼 → 좌측 그리드만 조회
+    $('#btnRoleSearch').on('click', function () {
+      loadRoleList();
+    });
+
+    // 초기화 버튼
+    $('#btnRoleReset').on('click', function () {
+      $('#roleName').val('');
+      $('#roleType').val('');
+      $('#useYn').val('');
+      roleGrid.resetData([]);
+      currentRoleId = null;
+      loadAllAuthGrids(null);  // 우측은 기본 메뉴만 다시 로딩
+    });
+
+    // 역할 행 클릭 → 해당 역할 기준으로 권한 조회
+    roleGrid.on('click', function (ev) {
+   	  const rowKey = ev.rowKey;
+      const row = roleGrid.getRow(ev.rowKey);
+      if (!row) return;
+            
+      currentRoleRowKey = rowKey;
+      currentRoleId = row.roleId;
+      
+      currentRoleIsSystem = !!row.roleId && !row.vendId;
+      
+      loadAllAuthGrids(currentRoleId);
+    });
+
+    // 행 추가 버튼
+    $('#btnRoleAdd').on('click', function () {
+      roleGrid.prependRow(
+        {
+          roleId: null,
+          roleNm: '',
+          roleTy: '',
+          yn: 'e1'
+        },
+        { focus: true }
+      );
+    });
+
+    // 역할 저장
+    $('#btnRoleSave').on('click', function () {
+      roleGrid.finishEditing();	
+    	
+      const modified = roleGrid.getModifiedRows();
+	
+      if (
+        modified.createdRows.length === 0 &&
+        modified.updatedRows.length === 0
+      ) {
+        alert('변경된 내용이 없습니다.');
+        return;
+      }
+      
+      const invalidUpdated = modified.updatedRows.filter(row => {
+   	    // roleId가 있고 vendId가 없으면 DB에 있는 공통 역할로 판단
+   	    return row.roleId && !row.vendId;
+   	  });
+
+      if (invalidUpdated.length > 0) {
+    	alert('권한이 없습니다.\n공통 역할은 수정할 수 없습니다.');
+    	// ➜ 화면을 DB 기준으로 롤백
+    	loadRoleList();
+    	return;
+      }
+
+      const payload = {
+        created: modified.createdRows,
+        updated: modified.updatedRows
+      };
+
+      $.ajax({
+   	    url: '/api/auth/roles',
+   	    method: 'POST',
+   	    contentType: 'application/json',
+   	    data: JSON.stringify(payload)
+   	  }).done(function (res) {
+   	    const created = (res && res.createdCount) || 0;
+   	    const updated = (res && res.updatedCount) || 0;
+   	    const deleted = (res && res.deletedCount) || 0;
+
+   	    let msg = '';
+   	    if (created > 0) msg += created + '건의 역할이 저장되었습니다.\n';
+   	    if (updated > 0) msg += updated + '건의 역할이 수정되었습니다.\n';
+   	    if (deleted > 0) msg += deleted + '건의 역할이 삭제되었습니다.\n';
+   	    if (!msg) msg = '변경된 내용이 없습니다.';
+
+   	    alert(msg);
+   	    loadRoleList();
+   	  }).fail(function () {
+   	    alert('역할 저장 중 오류가 발생했습니다.');
+   	  });
+    });
+
+    // 권한 저장
+    $('#btnAuthSave').on('click', function () {
+
+	  // 1) 좌측 그리드 편집 종료
+	  roleGrid.finishEditing();
+	
+	  // 2) 현재 선택된 행이 있는지
+	  if (currentRoleRowKey == null) {
+	    alert('먼저 좌측에서 역할을 선택해 주세요.');
+	    return;
+	  }
+	
+	  const selectedRole = roleGrid.getRow(currentRoleRowKey);
+	
+	  // 3) 신규 행인데 아직 저장 안 된 경우
+	  if (!selectedRole || !selectedRole.roleId) {
+	    alert('새로 추가한 역할입니다.\n먼저 좌측 역할 정보를 저장한 뒤 권한을 저장해 주세요.');
+	    return;
+	  }
+	
+	  // 🔹 vend_id 없는 시스템 역할 → 선택된 역할의 DB 값으로 롤백
+	  if (!selectedRole.vendId) {
+	    alert('이 역할은 권한을 수정할 수 없습니다.');
+	    loadAllAuthGrids(selectedRole.roleId);   // ★ null 말고 이 역할 기준
+	    return;
+	  }
+	
+	  // 4) 여기까지 왔으면 DB에 있는 역할
+	  currentRoleId = selectedRole.roleId;
+	
+	  authGridHr.finishEditing();
+	  authGridSales.finishEditing();
+	  authGridCommon.finishEditing();
+	
+	  const authList = [];
+	
+	  ['hr', 'sales', 'common'].forEach(function (key) {
+	    const info = moduleGridMap[key];
+	    if (!info) return;
+	
+	    const rows = info.grid.getData();
+	    rows.forEach(function (row) {
+	      authList.push({
+	        roleId: currentRoleId,
+	        moduleId: info.moduleId,
+	        menuId: row.menuId,
+	        selYn: row.selYn || 'e2',
+	        insYn: row.insYn || 'e2',
+	        updtYn: row.insYn || 'e2',
+	        delYn: row.delYn || 'e2'
+	      });
+	    });
+	  });
+	
+	  $.ajax({
+	    url: '/api/auth/menus/save',
+	    method: 'POST',
+	    contentType: 'application/json',
+	    data: JSON.stringify(authList)
+	  }).done(function (res) {
+	    const mode  = res && res.mode;
+	    const count = (res && res.count) || 0;
+	
+	    let msg;
+	    if (mode === 'insert') {
+	      msg = '권한이 저장되었습니다.';
+	    } else if (mode === 'update') {
+	      msg = '권한이 수정되었습니다.';
+	    } else {
+	      msg = '권한이 저장되었습니다.';
+	    }
+	
+	    alert(msg);
+	    loadAllAuthGrids(currentRoleId);   // 정상 저장 시도 이 역할 기준
+	  }).fail(function (xhr) {
+	    const res = xhr.responseJSON;
+	    const msg = (res && res.message) ? res.message : '권한 저장 중 오류가 발생했습니다.';
+	    alert(msg);
+	
+	    // 🔹 실패(권한 없음 포함) 시에도 선택된 역할 기준으로 롤백
+	    if (selectedRole && selectedRole.roleId) {
+	      loadAllAuthGrids(selectedRole.roleId);
+	    }
+	  });
+	});
+    
+    // 창 크기 변경 시 레이아웃 보정
+    window.addEventListener('resize', function () {
+      roleGrid.refreshLayout();
+      authGridHr.refreshLayout();
+      authGridSales.refreshLayout();
+      authGridCommon.refreshLayout();
+    });
+
+    // ==========================
+    // 7. 페이지 진입 시
+    //    - 좌측 역할 그리드는 비워두고
+    //    - 우측 아코디언은 메뉴 전체 로딩
+    // ==========================
+    loadAllAuthGrids(null);
+
+  });
+</script>
+
+</body>
+</html>

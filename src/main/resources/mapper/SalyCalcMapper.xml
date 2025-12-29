@@ -1,0 +1,442 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+  PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="store.yd2team.insa.mapper.SalyCalcMapper">
+
+<select id="selectSalySpecCalcList"
+        resultType="store.yd2team.insa.service.SalySpecCalcViewVO">
+SELECT
+    ss.saly_spec_id AS salySpecId,
+    e.emp_id        AS empId,
+    e.nm            AS empNm,
+    d.dept_nm       AS deptNm,
+
+    cc.code_nm      AS clsfNm,
+    rc.code_nm      AS rspofcNm,
+
+    g.grp_no        AS grpNo,
+    si.grp_nm       AS calcGrpNm,
+
+    ss.pay_amt      AS payAmt,
+    ss.tt_duc_amt   AS ttDucAmt,
+    ss.act_pay_amt  AS actPayAmt
+FROM tb_saly_spec ss
+JOIN tb_emp e
+  ON e.emp_id = ss.emp_id
+LEFT JOIN tb_dept d
+  ON d.dept_id = e.dept_id
+
+LEFT JOIN tb_code cc
+  ON cc.code_id = e.clsf
+ AND cc.grp_id  = 'k'
+
+LEFT JOIN tb_code rc
+  ON rc.code_id = e.rspofc
+ AND rc.grp_id  = 'l'
+
+LEFT JOIN (
+    SELECT saly_spec_id,
+           MAX(grp_nm) KEEP (DENSE_RANK LAST ORDER BY crea_dt) AS grp_nm
+      FROM tb_saly_spec_item
+     GROUP BY saly_spec_id
+) si
+  ON si.saly_spec_id = ss.saly_spec_id
+
+LEFT JOIN (
+    SELECT vend_id, grp_nm, MIN(grp_no) AS grp_no
+      FROM tb_pay_cal_grp
+     GROUP BY vend_id, grp_nm
+) g
+  ON g.vend_id = #{vendId}
+ AND g.grp_nm  = si.grp_nm
+
+WHERE ss.saly_ledg_id = #{salyLedgId}
+</select>
+
+
+
+  <select id="callPrcCalcSalyItems" statementType="CALLABLE" parameterType="map">
+    { CALL prc_calc_saly_items(
+        #{p_saly_ledg_id, mode=IN, jdbcType=VARCHAR},
+        #{p_emp_id,       mode=IN, jdbcType=VARCHAR},
+        #{p_grp_no,       mode=IN, jdbcType=NUMERIC},
+        #{o_result,       mode=OUT, jdbcType=CURSOR, resultMap=payItemRowMap}
+    ) }
+  </select>
+
+  <resultMap id="payItemRowMap" type="store.yd2team.insa.service.PayItemRowVO">
+    <result property="itemTy" column="ITEM_TY"/>
+    <result property="itemId" column="ITEM_ID"/>
+    <result property="itemNm" column="ITEM_NM"/>
+    <result property="amt"    column="AMT"/>
+  </resultMap>
+
+  <!-- =========================
+       ✅ FIX 핵심: 캐시 OFF
+       - 파라미터 없는 NEXTVAL 조회는 MyBatis 로컬캐시로
+         같은 값이 반복될 수 있음
+       - useCache=false, flushCache=true로 강제
+       ========================= -->
+
+<insert id="insertSpecItems" parameterType="map">
+  BEGIN
+  <foreach collection="list" item="it">
+    INSERT INTO tb_saly_spec_item (
+        saly_spec_id,
+        item_no,
+        grp_nm,
+        item_ty,
+        disp_no,
+        item_nm,
+        amt,
+        crea_dt,
+        crea_by
+    ) VALUES (
+        #{it.salySpecId},
+        SEQ_SALY_SPEC_ITEM.NEXTVAL,
+        #{it.grpNm},
+        #{it.itemTy},
+        TO_NUMBER(#{it.dispNo}),
+        #{it.itemNm},
+        #{it.amt},
+        SYSDATE,
+        #{it.creaBy}
+    );
+  </foreach>
+  END;
+</insert>
+
+
+
+  <update id="updateSalySpecTotals">
+    UPDATE tb_saly_spec
+       SET pay_amt     = #{payAmt},
+           tt_duc_amt  = #{ttDucAmt},
+           act_pay_amt = #{actPayAmt},
+           updt_dt     = SYSDATE,
+           updt_by     = #{updtBy}
+     WHERE saly_spec_id = #{salySpecId}
+  </update>
+
+
+  <select id="selectCalcGroupList" resultType="store.yd2team.insa.service.CalGrpVO">
+    SELECT
+        grp_no  AS grpNo,
+        grp_nm  AS grpNm,
+        crea_dt AS creaDt,
+        crea_by AS creaBy,
+        updt_dt AS updtDt,
+        updt_by AS updtBy,
+        vend_id AS vendId
+      FROM tb_pay_cal_grp
+     WHERE vend_id = #{vendId}
+     ORDER BY grp_no
+  </select>
+
+  <select id="selectAllowListForCalc" resultType="store.yd2team.insa.service.AllowDucVO">
+    SELECT
+        a.vend_id   AS vendId,
+        CAST(a.disp_no AS NUMBER(19,0)) AS dispNo,
+        a.cal_fmlt  AS calFmlt,
+        a.cal_mthd  AS calMthd,
+        a.yn        AS ynCode,
+        a.allow_id  AS allowId,
+        a.allow_nm  AS allowNm,
+        a.crea_dt   AS creaDt,
+        a.crea_by   AS creaBy,
+        a.updt_dt   AS updtDt,
+        a.updt_by   AS updtBy
+      FROM tb_allow a
+     WHERE a.vend_id = #{vendId}
+       AND a.yn      = 'e1'
+    <if test="grpNo != null">
+       AND EXISTS (
+          SELECT 1
+            FROM tb_pay_cal_grp_item gi
+            JOIN tb_pay_cal_grp g
+              ON g.grp_no = gi.grp_no
+           WHERE gi.grp_no  = #{grpNo}
+             AND gi.item_ty = 'A'
+             AND gi.item_id = a.allow_id
+             AND g.vend_id  = #{vendId}
+       )
+    </if>
+     ORDER BY a.disp_no, a.allow_id
+  </select>
+
+  <select id="selectDucListForCalc" resultType="store.yd2team.insa.service.AllowDucVO">
+    SELECT
+        d.vend_id  AS vendId,
+        CAST(d.disp_no AS NUMBER(19,0)) AS dispNo,
+        d.cal_fmlt AS calFmlt,
+        d.cal_mthd AS calMthd,
+        d.yn       AS ynCode,
+        d.duc_id   AS ducId,
+        d.duc_nm   AS ducNm,
+        d.crea_dt  AS creaDt,
+        d.crea_by  AS creaBy,
+        d.updt_dt  AS updtDt,
+        d.updt_by  AS updtBy
+      FROM tb_duc d
+     WHERE d.vend_id = #{vendId}
+       AND d.yn      = 'e1'
+    <if test="grpNo != null">
+       AND EXISTS (
+          SELECT 1
+            FROM tb_pay_cal_grp_item gi
+            JOIN tb_pay_cal_grp g
+              ON g.grp_no = gi.grp_no
+           WHERE gi.grp_no  = #{grpNo}
+             AND gi.item_ty = 'D'
+             AND gi.item_id = d.duc_id
+             AND g.vend_id  = #{vendId}
+       )
+    </if>
+     ORDER BY d.disp_no, d.duc_id
+  </select>
+
+  <delete id="deleteGrpItemsByGrpNo">
+    DELETE
+      FROM tb_pay_cal_grp_item gi
+     WHERE gi.grp_no = #{grpNo}
+       AND EXISTS (
+         SELECT 1
+           FROM tb_pay_cal_grp g
+          WHERE g.grp_no  = gi.grp_no
+            AND g.vend_id = #{vendId}
+       )
+  </delete>
+
+  <insert id="insertGrpItems" parameterType="map">
+    INSERT ALL
+    <foreach collection="list" item="it">
+      INTO tb_pay_cal_grp_item (
+        grp_no, item_ty, item_id, crea_dt, crea_by
+      ) VALUES (
+        #{it.grpNo}, #{it.itemTy}, #{it.itemId}, SYSDATE, #{it.creaBy}
+      )
+    </foreach>
+    SELECT 1 FROM dual
+  </insert>
+
+  <select id="selectNextCalcGrpNo" resultType="long" useCache="false" flushCache="true">
+    SELECT seq_pay_cal_grp.NEXTVAL FROM dual
+  </select>
+
+  <insert id="insertCalcGroup">
+    INSERT INTO tb_pay_cal_grp (
+        grp_no, vend_id, grp_nm, crea_dt, crea_by
+    ) VALUES (
+        #{grpNo}, #{vendId}, #{grpNm}, SYSDATE, #{creaBy}
+    )
+  </insert>
+
+  <update id="updateCalcGroup">
+    UPDATE tb_pay_cal_grp
+       SET grp_nm  = #{grpNm},
+           updt_dt = SYSDATE,
+           updt_by = #{updtBy}
+     WHERE vend_id = #{vendId}
+       AND grp_no  = #{grpNo}
+  </update>
+
+  <delete id="deleteCalcGroup">
+    DELETE FROM tb_pay_cal_grp
+     WHERE vend_id = #{vendId}
+       AND grp_no  = #{grpNo}
+  </delete>
+  <!-- =========================================================
+     salySpecId → empId 조회
+     (급여계산 미리보기/저장 공통)
+     ========================================================= -->
+<select id="selectEmpIdBySpecId"
+        parameterType="string"
+        resultType="string">
+    SELECT emp_id
+      FROM tb_saly_spec
+     WHERE saly_spec_id = #{salySpecId}
+</select>
+
+<!-- ✅ 단건 upsert: (saly_spec_id, grp_no, item_id) 기준 -->
+<insert id="mergeSpecItem" parameterType="map">
+  MERGE INTO tb_saly_spec_item t
+  USING (
+    SELECT
+      #{salySpecId}        AS saly_spec_id,
+      #{grpNm}             AS grp_nm,
+      #{itemTy}            AS item_ty,
+      TO_NUMBER(#{dispNo}) AS disp_no,
+      #{itemNm}            AS item_nm,
+      #{amt}               AS amt
+    FROM dual
+  ) s
+  ON (
+    t.saly_spec_id = s.saly_spec_id
+    AND t.grp_nm   = s.grp_nm
+    AND t.item_ty  = s.item_ty
+    AND t.disp_no  = s.disp_no
+  )
+  WHEN MATCHED THEN
+    UPDATE SET
+      t.amt     = s.amt,
+      t.updt_dt = SYSDATE,
+      t.updt_by = #{updtBy}
+  WHEN NOT MATCHED THEN
+    INSERT (
+      saly_spec_id,
+      item_no,
+      grp_nm,
+      item_ty,
+      disp_no,
+      item_nm,
+      amt,
+      crea_dt,
+      crea_by,
+      updt_dt,
+      updt_by
+    )
+    VALUES (
+      s.saly_spec_id,
+      SEQ_SALY_SPEC_ITEM.NEXTVAL,
+      s.grp_nm,
+      s.item_ty,
+      s.disp_no,
+      s.item_nm,
+      s.amt,
+      SYSDATE,
+      #{creaBy},
+      SYSDATE,
+      #{updtBy}
+    )
+</insert>
+
+<select id="selectGrpNm" resultType="string">
+  SELECT grp_nm
+    FROM tb_pay_cal_grp
+   WHERE vend_id = #{vendId}
+     AND grp_no  = #{grpNo}
+</select>
+
+<delete id="deleteSpecItemsBySpecAndDispNosNotIn" parameterType="map">
+  DELETE
+    FROM tb_saly_spec_item
+   WHERE saly_spec_id = #{salySpecId}
+     AND grp_nm       = #{grpNm}
+     AND (item_ty || '_' || TO_CHAR(disp_no)) NOT IN
+     <foreach collection="keyList" item="k" open="(" close=")" separator=",">
+       #{k}
+     </foreach>
+</delete>
+<select id="selectSalySpecItemsByGrpNm"
+        resultType="store.yd2team.insa.service.SalySpecItemVO">
+  SELECT
+      saly_spec_id     AS salySpecId,
+      item_no          AS itemNo,
+      grp_nm           AS grpNm,
+      item_ty          AS itemTy,
+      item_nm          AS itemNm,
+      TO_CHAR(disp_no) AS dispNo,
+      TRUNC(amt)       AS amt,
+      crea_dt          AS creaDt,
+      crea_by          AS creaBy,
+      updt_dt          AS updtDt,
+      updt_by          AS updtBy
+    FROM tb_saly_spec_item
+   WHERE saly_spec_id = #{salySpecId}
+     AND grp_nm       = #{grpNm}
+   ORDER BY
+     CASE WHEN item_ty='A' THEN 1 WHEN item_ty='D' THEN 2 ELSE 9 END,
+     disp_no,
+     item_no
+</select>
+<!-- ✅ 재조회용: saly_spec_id 기준 전체 조회 -->
+<select id="selectSalySpecItemsBySpecId"
+        resultType="store.yd2team.insa.service.SalySpecItemVO">
+  SELECT
+      saly_spec_id     AS salySpecId,
+      item_no          AS itemNo,
+      grp_nm           AS grpNm,
+      item_ty          AS itemTy,
+      item_nm          AS itemNm,
+      TO_CHAR(disp_no) AS dispNo,
+      TRUNC(amt)       AS amt,
+      crea_dt          AS creaDt,
+      crea_by          AS creaBy,
+      updt_dt          AS updtDt,
+      updt_by          AS updtBy
+    FROM tb_saly_spec_item
+   WHERE saly_spec_id = #{salySpecId}
+   ORDER BY
+     grp_nm,
+     CASE WHEN item_ty='A' THEN 1 WHEN item_ty='D' THEN 2 ELSE 9 END,
+     disp_no,
+     item_no
+</select>
+
+
+<delete id="deleteSpecItemsBySpecAndGrpNm">
+  DELETE
+    FROM tb_saly_spec_item
+   WHERE saly_spec_id = #{salySpecId}
+     AND grp_nm       = #{grpNm}
+</delete>
+<!-- (B안) 항목 1건 삭제: spec + grpNm + itemTy + dispNo -->
+<delete id="deleteSpecItemByKey">
+  DELETE FROM tb_saly_spec_item
+   WHERE saly_spec_id = #{salySpecId}
+     AND grp_nm       = #{grpNm}
+     AND item_ty      = #{itemTy}
+     AND disp_no      = #{dispNo}
+</delete>
+
+
+<delete id="deleteSpecItemsBySpecId">
+  DELETE FROM tb_saly_spec_item
+   WHERE saly_spec_id = #{salySpecId}
+</delete>
+<!-- SalyCalcMapper.xml -->
+<update id="updateSpecItemAmt">
+  UPDATE tb_saly_spec_item
+     SET amt = #{amt},
+         updt_dt = SYSDATE,
+         updt_by = #{updtBy}
+   WHERE saly_spec_id = #{salySpecId}
+     AND grp_nm       = #{grpNm}
+     AND item_ty      = #{itemTy}
+     AND disp_no      = #{dispNo}
+</update>
+<!-- ✅ spec 전체 합계(그룹 조건 없음) -->
+<select id="selectSpecTotalsBySpecId" resultType="map">
+  SELECT
+    NVL(SUM(CASE WHEN item_ty = 'A' THEN amt END), 0) AS "payAmt",
+    NVL(SUM(CASE WHEN item_ty = 'D' THEN amt END), 0) AS "ttDucAmt"
+  FROM tb_saly_spec_item
+  WHERE saly_spec_id = #{salySpecId}
+</select>
+
+<select id="selectSpecTotalsByGrpNm" resultType="map">
+  SELECT
+    NVL(SUM(CASE WHEN item_ty = 'A' THEN amt END), 0) AS "payAmt",
+    NVL(SUM(CASE WHEN item_ty = 'D' THEN amt END), 0) AS "ttDucAmt"
+  FROM tb_saly_spec_item
+  WHERE saly_spec_id = #{salySpecId}
+    AND grp_nm       = #{grpNm}
+</select>
+<!-- ✅ 급여계산 초기화: 급여대장 기준으로 tb_saly_spec_item 전부 삭제 -->
+<delete id="deleteSpecItemsByLedgId">
+  DELETE FROM tb_saly_spec_item
+   WHERE saly_spec_id IN (
+     SELECT ss.saly_spec_id
+       FROM tb_saly_spec ss
+       JOIN tb_saly_ledg sl
+         ON sl.saly_ledg_id = ss.saly_ledg_id
+      WHERE ss.saly_ledg_id = #{salyLedgId}
+        AND sl.vend_id      = #{vendId}
+   )
+</delete>
+
+
+
+</mapper>

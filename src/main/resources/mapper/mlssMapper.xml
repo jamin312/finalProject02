@@ -1,0 +1,220 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="store.yd2team.insa.mapper.MlssMapper">
+
+<select id="empIdList">
+ SELECT  emp_id
+FROM    tb_emp
+WHERE   vend_id = #{vendId}
+</select>
+
+<insert id="insertMlssHead">
+<selectKey keyProperty="mlssId" order="BEFORE" resultType="String">
+SELECT 'mlss' ||  LPAD(NVL(MAX(SUBSTR(mlss_id, LENGTH(mlss_id)-2, 3)), 0) + 1, 3, '0') AS mlss_id
+FROM tb_mlss
+</selectKey>
+insert into tb_mlss(
+      mlss_id, evl_begin_dt, evl_end_dt, mlss_nm, suprr, crk, self, crea_by, vend_id
+    ) VALUES (
+      #{mlssId}, #{evlBeginDt}, #{evlEndDt}, #{mlssNm}, 0, 0, 0, 'myk', #{vendId} )
+</insert>
+
+<select id="mlssCreateId">
+SELECT 'mlss_emp' || TO_CHAR(SYSDATE, 'YYMM') ||
+       LPAD(NVL(MAX(SUBSTR(mlss_emp_id, LENGTH(mlss_emp_id)-2, 3)), 0) + 1, 3, '0') AS mlss_emp_id
+FROM tb_mlss_emp
+WHERE SUBSTR(mlss_emp_id, 9, 4) = TO_CHAR(SYSDATE, 'YYMM')
+</select>
+
+<insert id="insertMlssList">
+  INSERT ALL
+  <foreach collection="list" item="item">
+    INTO tb_mlss_emp (
+      mlss_emp_id, emp_id, suprr, crk, self, crea_dt, crea_by, mlss_id
+    ) VALUES (
+      #{item.mlssEmpId}, #{item.empId}, 0, 0, 0, #{item.creaDt}, 'myk' ,#{item.mlssId}
+    )
+  </foreach>
+  SELECT 1 FROM DUAL
+</insert>
+
+<select id="mlssSearchList">
+SELECT 
+mlss_id
+ ,mlss_nm
+ ,evl_begin_dt
+ ,evl_end_dt
+ ,crea_dt
+FROM    tb_mlss
+<where>
+    <if test="mlssNm != null and mlssNm != ''">
+      AND mlss_nm LIKE '%'|| #{mlssNm}|| '%'
+    </if>
+    <if test="evlBeginDt != null and evlBeginDt != ''">
+      AND evl_begin_dt >= #{evlBeginDt}
+    </if>    
+</where>
+order by crea_dt desc
+</select>
+
+<select id="mlssDtChk">
+<![CDATA[
+        SELECT mlss_id, mlss_emp_id, evl_begin_dt, evl_end_dt
+		FROM (
+		    SELECT a.mlss_id, a.mlss_emp_id, evl_begin_dt, evl_end_dt
+		    FROM tb_mlss_emp a 
+		    join tb_mlss b
+		    on a.mlss_id = b.mlss_id
+		    WHERE emp_id = #{empId}
+		      AND TRUNC(evl_begin_dt) <= TRUNC(SYSDATE)
+		      AND TRUNC(evl_end_dt) >= TRUNC(SYSDATE)
+		    ORDER BY a.crea_dt DESC
+		)
+		WHERE ROWNUM = 1          
+    ]]>
+</select>
+
+<select id="mlssIemList">
+select *
+from tb_mlss_iem
+</select>
+
+<insert id="mlssWrterRegist">
+INSERT ALL
+  <foreach collection="list" item="item">
+    INTO tb_mlss_wrter (mlss_emp_id, mlss_iem_id, emp_id, score, evale_relate, crea_by)
+    VALUES (#{item.mlssEmpId}, #{item.mlssIemId}, #{item.empId}, #{item.score}, #{item.evaleRelate}, 'myk')
+  </foreach>
+SELECT 1 FROM DUAL
+</insert>
+
+<update id="mlssMasterUpdate">
+UPDATE tb_mlss_emp
+SET
+    self = (
+        SELECT NVL(AVG(CASE WHEN evale_relate='본인' THEN score END), 0)
+        FROM tb_mlss_wrter
+        WHERE mlss_emp_id IN (
+            SELECT mlss_emp_id FROM tb_mlss_emp WHERE mlss_id = #{mlssId}
+        )
+        AND emp_id = #{empId}
+    ),
+    suprr = (
+        SELECT NVL(AVG(CASE WHEN evale_relate='상사' THEN score END), 0)
+        FROM tb_mlss_wrter
+        WHERE mlss_emp_id IN (
+            SELECT mlss_emp_id FROM tb_mlss_emp WHERE mlss_id = #{mlssId}
+        )
+        AND emp_id = #{empId}
+    ),
+    crk = (
+        SELECT NVL(AVG(CASE WHEN evale_relate='동료' THEN score END), 0)
+        FROM tb_mlss_wrter
+        WHERE mlss_emp_id IN (
+            SELECT mlss_emp_id FROM tb_mlss_emp WHERE mlss_id = #{mlssId}
+        )
+        AND emp_id = #{empId}
+    ),
+    updt_dt = SYSDATE,
+    updt_by = 'myk'
+WHERE mlss_emp_id = #{mlssEmpId}
+</update>
+
+<select id="mlssEmpList">
+<![CDATA[
+select
+ /*피평가자 ID, 피평가자 직급 */ 
+ a.mlss_emp_id
+ ,case when a.emp_id = c.emp_id then  '본인'
+       
+       when c.clsf < b.clsf then '상사'
+       when c.clsf >= b.clsf then '동료'
+       end "evale_relate" 
+ /*평가자 ID, 평가자 직급 */ 
+ ,b.emp_id
+ ,b.nm
+ ,b.clsf
+ from tb_mlss_emp a, tb_emp b, tb_emp c
+where c.emp_id = #{empId}
+and a.emp_id = b.emp_id
+and b.dept_id = #{deptId}
+and a.mlss_id = (select mlss_id
+                 from tb_mlss
+                 where TRUNC(evl_begin_dt) <= TRUNC(SYSDATE)
+		      AND TRUNC(evl_end_dt) >= TRUNC(SYSDATE)
+              and ROWNUM = 1)]]>
+              
+</select>
+
+<select id="mlssWrterLoadBefore">
+select *
+from tb_mlss_wrter
+where mlss_emp_id = #{mlssEmpId}
+and emp_id = #{empId}
+</select>
+
+<select id="mlssStLoadBefore">
+select
+ evale_relate 
+ ,count(mlss_emp_id)/9 "mlss_emp_id_count"
+from tb_mlss_wrter
+where mlss_emp_id in (select
+                     mlss_emp_id
+                    from tb_mlss_emp
+                    where emp_id in (select
+                                    emp_id
+                                    from tb_emp
+                                    where vend_id = #{vendId}
+                                    and dept_id = #{deptId})
+                    and mlss_id = #{mlssId})
+and emp_id = #{empId}
+group by evale_relate
+</select>
+
+<select id="FinalResultMlssList">
+select
+ a.evale_relate
+ ,b.ability
+ ,b.mlss_iem
+ ,avg(a.score) "score"
+from tb_mlss_wrter a
+join tb_mlss_iem b
+on a.mlss_iem_id = b.mlss_iem_id
+where a.mlss_emp_id in (select
+                     mlss_emp_id
+                    from tb_mlss_emp
+                    where emp_id in (select
+                                    emp_id
+                                    from tb_emp
+                                    where vend_id = #{vendId}
+                                    and dept_id = #{deptId})
+                    and mlss_id = #{mlssId})
+and emp_id = #{empId}
+AND a.evale_relate = '본인'
+group by a.evale_relate, b.ability, b.mlss_iem
+</select>
+
+<select id="FinalResultMlssEtcList">
+select
+ a.evale_relate
+ ,b.ability
+ ,b.mlss_iem
+ ,avg(a.score) "score"
+from tb_mlss_wrter a
+join tb_mlss_iem b
+on a.mlss_iem_id = b.mlss_iem_id
+where a.mlss_emp_id in (select
+                     mlss_emp_id
+                    from tb_mlss_emp
+                    where emp_id in (select
+                                    emp_id
+                                    from tb_emp
+                                    where vend_id = #{vendId}
+                                    and dept_id = #{deptId})
+                    and mlss_id = #{mlssId})
+and emp_id &lt;&gt; #{empId}
+AND a.evale_relate &lt;&gt; '본인'
+group by a.evale_relate, b.ability, b.mlss_iem
+</select>
+
+</mapper>

@@ -1,0 +1,610 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml"
+      xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layout}">
+
+<head>
+  <meta charset="UTF-8">
+  <title>ERP 로그인</title>
+
+  <style>
+    .login-wrapper {
+      min-height: calc(85vh - 80px);
+      display: flex;
+      justify-content: center;
+      padding: 40px 16px 0;  
+      box-sizing: border-box;
+    }
+
+    /* 로그인 카드 + 오른쪽 계정 안내 패널을 한 줄에 놓되,
+       화면이 좁으면 자동으로 줄 바꿈 */
+    .login-inner {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: flex-start;
+      justify-content: center;
+      gap: 24px;
+      max-width: 1080px;      
+      width: 100%;
+    }
+
+    .login-card {
+      flex: 0 0 480px;        
+      max-width: 500px;
+      border: 1px solid #ddd;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, .06);
+      padding: 36px 40px 28px;
+      position: relative;
+      background-color: #ffffff;
+    }
+
+    .login-card-title {
+      font-size: 1.5rem;
+      font-weight: 700;
+      text-align: center;
+      margin-bottom: 28px;
+    }
+
+    .login-card-close {
+      position: absolute;
+      right: 10px;
+      top: 8px;
+      font-size: 18px;
+      border: none;
+      background: transparent;
+      cursor: pointer;
+    }
+
+    .login-card-close:hover {
+      opacity: .7;
+    }
+
+    .login-error {
+      min-height: 18px;
+      font-size: 0.78rem;
+      color: #dc3545;
+      margin-top: 4px;
+    }
+
+    /* === 캡챠 영역 === */
+    .captcha-box {
+      border: 1px solid #dee2e6;
+      border-radius: 4px;
+      padding: 10px 12px;
+      margin: 16px 0 24px;
+      background-color: #f8f9fa;
+    }
+
+    .captcha-top-row {
+      display: flex;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+
+    .captcha-image {
+      width: 120px;
+      height: 40px;
+      border: 1px solid #ced4da;
+      background-color: #ffffff;
+      margin-right: 8px;
+    }
+
+    .captcha-input {
+      font-size: 0.9rem;
+    }
+
+    /* === OTP 영역 === */
+    .otp-box {
+      border: 1px solid #dee2e6;
+      border-radius: 4px;
+      padding: 10px 12px;
+      margin-top: 16px;
+      background-color: #ffffff;
+    }
+
+    /* ★ OTP 버튼 줄: 버튼 3개가 균등하게 들어가도록 */
+    .otp-btn-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      justify-content: center;
+    }
+
+    .otp-btn-row .btn {
+      flex: 1 1 0;
+      min-width: 0;  /* flex 수축 허용 */
+    }
+
+    .btn-login,
+    .btn-find-pwd {
+      min-width: 120px;
+    }
+
+    /* ====== 오른쪽 개발용 계정 안내 패널 ====== */
+    .login-info-panel {
+      flex: 1 1 320px;
+      max-width: 500px;
+      background-color: #f8f9fb;
+      border: 1px solid #dee2e6;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, .03);
+      padding: 20px 18px 18px;
+      font-size: 0.85rem;
+    }
+
+    .login-info-title {
+      font-size: 1rem;
+      font-weight: 600;
+      margin-bottom: 8px;
+    }
+
+    .login-info-desc {
+      font-size: 0.78rem;
+      color: #6c757d;
+      margin-bottom: 10px;
+    }
+
+    .login-info-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.78rem;
+    }
+
+    .login-info-table th,
+    .login-info-table td {
+      border: 1px solid #dee2e6;
+      padding: 4px 6px;
+      white-space: nowrap;
+    }
+
+    .login-info-table th {
+      background-color: #e9ecef;
+      font-weight: 600;
+      text-align: center;
+    }
+
+    .login-info-table td {
+      text-align: center;
+    }
+
+    .mas-tag {
+      display: inline-block;
+      padding: 1px 6px;
+      border-radius: 999px;
+      font-size: 0.72rem;
+    }
+
+    .mas-master {
+      background-color: #0d6efd;
+      color: #fff;
+    }
+
+    .mas-normal {
+      background-color: #6c757d;
+      color: #fff;
+    }
+
+    .login-info-legend {
+      list-style: none;
+      padding-left: 0;
+      margin-top: 8px;
+      margin-bottom: 0;
+      font-size: 0.75rem;
+      color: #495057;
+    }
+
+    .login-info-legend li + li {
+      margin-top: 2px;
+    }
+  </style>
+</head>
+
+<body layout:fragment="content">
+
+<div class="login-wrapper">
+  <div class="login-inner">
+
+    <!-- ================== 왼쪽: 로그인 카드 ================== -->
+    <div class="login-card">
+
+      <button type="button" class="login-card-close" aria-label="Close">&times;</button>
+
+      <h1 class="login-card-title">ERP 로그인</h1>
+
+      <form id="loginForm" method="post" action="" novalidate autocomplete="on">
+        <!-- 회사 코드 -->
+        <div class="mb-3">
+          <label for="vendId" class="form-label">회사 코드</label>
+          <input type="text"
+                 class="form-control"
+                 id="vendId"
+                 name="vendId"
+                 placeholder="회사 코드를 입력하세요"
+                 autocomplete="organization">
+        </div>
+
+        <!-- 아이디 -->
+        <div class="mb-3">
+          <label for="loginId" class="form-label">아이디</label>
+          <input type="text"
+                 class="form-control"
+                 id="loginId"
+                 name="loginId"
+                 placeholder="아이디를 입력하세요"
+                 autocomplete="username">
+        </div>
+
+        <!-- 비밀번호 -->
+        <div class="mb-1">
+          <label for="password" class="form-label">비밀번호</label>
+          <input type="password"
+                 class="form-control"
+                 id="password"
+                 name="password"
+                 placeholder="비밀번호를 입력하세요"
+                 autocomplete="current-password">
+        </div>
+
+        <!-- 에러 메시지 영역 -->
+        <div id="loginError" class="login-error"></div>
+
+        <!-- 캡챠 영역: 처음에는 숨김 상태로 -->
+        <div class="captcha-box" id="captchaBox" style="display:none;">
+          <div class="captcha-top-row">
+            <img id="captchaImg"
+                 class="captcha-image"
+                 src=""
+                 alt="보안문자 이미지">
+            <button type="button"
+                    class="btn btn-outline-secondary btn-sm"
+                    id="btnRefreshCaptcha">
+              새로고침
+            </button>
+          </div>
+          <input type="text"
+                 class="form-control captcha-input"
+                 id="captchaValue"
+                 name="captchaValue"
+                 placeholder="위에 보이는 문자를 입력하세요.">
+          <div id="captchaError" class="login-error"></div>
+        </div>
+
+        <!-- OTP 영역: 처음에는 숨김 -->
+        <div class="otp-box" id="otpBox" style="display:none;">
+          <div class="mb-2">
+            <label for="otpCode" class="form-label">OTP 코드</label>
+            <input type="text"
+                   class="form-control"
+                   id="otpCode"
+                   name="otpCode"
+                   placeholder="전송된 인증번호를 입력하세요.">
+          </div>
+          <div id="otpError" class="login-error"></div>
+          <div class="otp-btn-row mt-2">
+            <button type="button"
+                    class="btn btn-dark btn-login"
+                    id="otpSubmitBtn">OTP 확인
+            </button>
+            <button type="button"
+                    class="btn btn-outline-secondary"
+                    id="otpResendBtn">OTP 재전송
+            </button>
+            <button type="button"
+                    class="btn btn-outline-secondary"
+                    id="otpCancelBtn">취소
+            </button>
+          </div>
+        </div>
+
+        <!-- 버튼 영역 -->
+        <div class="d-flex justify-content-center gap-2 mt-3" id="loginBtnArea">
+          <button type="submit" class="btn btn-dark btn-login" id="loginBtn">로그인</button>
+          <button type="button"
+			      class="btn btn-outline-secondary btn-signup"
+			      id="signUpBtn">회원가입</button>
+        </div>
+      </form>
+
+    </div>
+
+    <!-- ================== 오른쪽: 개발용 계정 정보 패널 ================== -->
+ <!--    <div class="login-info-panel">
+      <div class="login-info-title">개발용 테스트 계정 안내</div>
+      <div class="login-info-desc">
+        로컬 / 개발 서버에서만 사용하세요.<br/>
+        비밀번호는 운영 반영 전에 반드시 변경 또는 삭제해야 합니다.
+      </div>
+
+      <table class="login-info-table">
+        <thead>
+        <tr>
+          <th>회사 코드<br/>(VEND_ID)</th>
+          <th>아이디<br/>(LOGIN_ID)</th>
+          <th>비밀번호<br/>(LOGIN_PWD)</th>
+          <th>MAS_YN</th>
+          <th>계정 구분</th>
+        </tr>
+        </thead>
+        <tbody>
+        <tr>
+          <td>vend_202512003</td>
+          <td>mas</td>
+          <td>mas</td>
+          <td><span class="mas-tag mas-master">e1</span></td>
+          <td>마스터 계정</td>
+        </tr>
+        <tr>
+          <td>V001</td>
+          <td>test</td>
+          <td>test</td>
+          <td><span class="mas-tag mas-normal">e2</span></td>
+          <td>일반 계정</td>
+        </tr>
+        <tr>
+          <td>V001</td>
+          <td>master</td>
+          <td>master</td>
+          <td><span class="mas-tag mas-master">e1</span></td>
+          <td>마스터 계정</td>
+        </tr>
+        <tr>
+          <td>V001</td>
+          <td>1</td>
+          <td>1</td>
+          <td><span class="mas-tag mas-master">e2</span></td>
+          <td>일반 계정</td>
+        </tr>
+        <tr>
+          <td>vend_202512002</td>
+          <td>idd</td>
+          <td>pww</td>
+          <td><span class="mas-tag mas-master">e1</span></td>
+          <td>마스터 계정</td>
+        </tr>
+        <tr>
+          <td>vend_202512001</td>
+          <td>id</td>
+          <td>pw</td>
+          <td><span class="mas-tag mas-master">e1</span></td>
+          <td>마스터 계정</td>
+        </tr>
+        </tbody>
+      </table>
+
+      <ul class="login-info-legend">
+        <li><span class="mas-tag mas-master">e1</span> : 마스터 계정</li>
+        <li><span class="mas-tag mas-normal">e2</span> : 일반 계정</li>
+      </ul>
+    </div> -->
+
+  </div>
+</div>
+
+<!-- 아래 JS는 그대로 사용 (내용 동일) -->
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+    const form = document.getElementById('loginForm');
+    if (!form) return;
+
+    const vendIdInput   = document.getElementById('vendId');
+    const loginIdInput  = document.getElementById('loginId');
+    const passwordInput = document.getElementById('password');
+
+    const loginBtn      = document.getElementById('loginBtn');
+    const signUpBtn    = document.getElementById('signUpBtn');
+    const loginBtnArea  = document.getElementById('loginBtnArea');
+    const errorDiv      = document.getElementById('loginError');
+
+    // 캡챠 관련
+    const captchaBox        = document.getElementById('captchaBox');
+    const captchaImg        = document.getElementById('captchaImg');
+    const captchaInput      = document.getElementById('captchaValue');
+    const captchaError      = document.getElementById('captchaError');
+    const btnRefreshCaptcha = document.getElementById('btnRefreshCaptcha');
+
+    // OTP 관련
+    const otpBox        = document.getElementById('otpBox');
+    const otpCodeInput  = document.getElementById('otpCode');
+    const otpError      = document.getElementById('otpError');
+    const otpSubmitBtn  = document.getElementById('otpSubmitBtn');
+    const otpResendBtn  = document.getElementById('otpResendBtn');
+    const otpCancelBtn  = document.getElementById('otpCancelBtn');
+
+    function refreshCaptcha() {
+      if (!captchaImg) return;
+      const baseUrl = '/logIn/captcha';
+      captchaImg.src = baseUrl + '?ts=' + new Date().getTime();
+      if (captchaInput) captchaInput.value = '';
+      if (captchaError) captchaError.textContent = '';
+    }
+
+    if (captchaBox) captchaBox.style.display = 'none';
+    if (otpBox) otpBox.style.display = 'none';
+
+    if (btnRefreshCaptcha) {
+      btnRefreshCaptcha.addEventListener('click', function () {
+        refreshCaptcha();
+      });
+    }
+
+    form.addEventListener('submit', function (e) {
+      e.preventDefault();
+
+      if (otpBox && otpBox.style.display !== 'none') {
+        return;
+      }
+
+      errorDiv.textContent = '';
+      if (captchaError) captchaError.textContent = '';
+      if (otpError) otpError.textContent = '';
+
+      const vendId = vendIdInput.value.trim();
+      const loginId = loginIdInput.value.trim();
+      const password = passwordInput.value.trim();
+      const captchaValue = captchaInput ? captchaInput.value.trim() : '';
+
+      if (!vendId || !loginId || !password) {
+        errorDiv.textContent = '회사 코드, 아이디, 비밀번호를 모두 입력해주세요.';
+        return;
+      }
+
+      loginBtn.disabled = true;
+      const originalText = loginBtn.textContent;
+      loginBtn.textContent = '로그인 중...';
+
+      const formData = new FormData();
+      formData.append('vendId', vendId);
+      formData.append('loginId', loginId);
+      formData.append('password', password);
+      if (captchaValue) formData.append('captchaValue', captchaValue);
+
+      fetch('/logIn/login', {
+        method: 'POST',
+        body: formData
+      })
+        .then(function (response) {
+          if (!response.ok) throw new Error('서버 응답 오류');
+          return response.json();
+        })
+        .then(function (data) {
+          if (data.success) {
+            try {
+        	  sessionStorage.removeItem('erp_session_expire_at');
+        	} catch (e) {}
+        	  
+            window.location.href = data.redirectUrl || '/';
+            return;
+          }
+
+          errorDiv.textContent = data.message || '아이디 또는 비밀번호가 올바르지 않습니다.';
+
+          if (data.otpRequired) {
+            vendIdInput.readOnly   = true;
+            loginIdInput.readOnly  = true;
+            passwordInput.readOnly = true;
+
+            if (loginBtnArea) loginBtnArea.style.display = 'none';
+            if (captchaBox) captchaBox.style.display = 'none';
+
+            if (otpBox) otpBox.style.display = '';
+            if (otpCodeInput) {
+              otpCodeInput.value = '';
+              otpCodeInput.focus();
+            }
+            if (otpError) otpError.textContent = '';
+            return;
+          }
+
+          if (typeof data.captchaRequired !== 'undefined' && data.captchaRequired) {
+            if (captchaBox) captchaBox.style.display = '';
+            refreshCaptcha();
+          }
+        })
+        .catch(function (err) {
+          console.error(err);
+          errorDiv.textContent = '로그인 처리 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.';
+        })
+        .finally(function () {
+          loginBtn.disabled = false;
+          loginBtn.textContent = originalText;
+        });
+    });
+
+    if (otpSubmitBtn) {
+      otpSubmitBtn.addEventListener('click', function () {
+        if (!otpCodeInput) return;
+
+        const code = otpCodeInput.value.trim();
+        otpError.textContent = '';
+        errorDiv.textContent = '';
+
+        if (!code) {
+          otpError.textContent = 'OTP 코드를 입력해 주세요.';
+          return;
+        }
+
+        otpSubmitBtn.disabled = true;
+        const originalText = otpSubmitBtn.textContent;
+        otpSubmitBtn.textContent = '확인 중...';
+
+        const formData = new FormData();
+        formData.append('otpCode', code);
+
+        fetch('/logIn/otp', {
+          method: 'POST',
+          body: formData
+        })
+          .then(function (response) {
+            if (!response.ok) throw new Error('서버 응답 오류');
+            return response.json();
+          })
+          .then(function (data) {
+            if (data.success) {
+              window.location.href = '/';
+            } else {
+              otpError.textContent = data.message || 'OTP 코드가 올바르지 않습니다.';
+            }
+          })
+          .catch(function (err) {
+            console.error(err);
+            otpError.textContent = 'OTP 검증 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.';
+          })
+          .finally(function () {
+            otpSubmitBtn.disabled = false;
+            otpSubmitBtn.textContent = originalText;
+          });
+      });
+    }
+
+    if (otpResendBtn) {
+      otpResendBtn.addEventListener('click', function () {
+        otpError.textContent = '';
+        errorDiv.textContent = '';
+
+        otpResendBtn.disabled = true;
+        const originalText = otpResendBtn.textContent;
+        otpResendBtn.textContent = '재전송 중...';
+
+        fetch('/logIn/otp/resend', {
+          method: 'POST'
+        })
+          .then(function (response) {
+            if (!response.ok) throw new Error('서버 응답 오류');
+            return response.json();
+          })
+          .then(function (data) {
+            if (data.otpRequired) {
+              otpError.textContent = data.message || '새 OTP가 전송되었습니다.';
+            } else {
+              otpError.textContent = data.message || 'OTP 재발급에 실패했습니다. 다시 로그인해 주세요.';
+            }
+          })
+          .catch(function (err) {
+            console.error(err);
+            otpError.textContent = 'OTP 재발급 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.';
+          })
+          .finally(function () {
+            otpResendBtn.disabled = false;
+            otpResendBtn.textContent = originalText;
+          });
+      });
+    }
+
+    if (otpCancelBtn) {
+      otpCancelBtn.addEventListener('click', function () {
+        window.location.reload();
+      });
+    }
+  
+  if (signUpBtn) {
+	  signUpBtn.addEventListener('click', function () {
+	    window.location.href = '/signUp'; 
+	  });
+	}
+  
+  });
+  
+</script>
+
+</body>
+</html>

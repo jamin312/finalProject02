@@ -1,0 +1,140 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+  PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="store.yd2team.insa.mapper.AttdStatusMapper">
+
+    <!-- HR 관리자 권한 여부 체크 -->
+    <select id="selectHrAdminCnt" resultType="int">
+        SELECT COUNT(1)
+          FROM tb_user_role
+         WHERE vend_id     = #{vendId}
+           AND emp_acct_id = #{empAcctId}
+           AND role_id     = 'role202512009'
+    </select>
+
+    <!-- ============================
+         관리자용: 전체 사원 근태 조회
+         - 직급: tb_emp.rspofc -> tb_code.code_nm
+         - 근태유형(attdTy):
+             * a.vcatn_id IS NOT NULL  -> tb_vcatn.vcatn_ty 코드명을 tb_code에서 조회
+             * ELSE                     -> a.attd_ty 그대로 사용
+       ============================ -->
+    <select id="selectAttdListAdmin"
+            parameterType="store.yd2team.insa.service.AttdStatusVO"
+            resultType="store.yd2team.insa.service.AttdStatusVO">
+
+        SELECT
+              TO_CHAR(a.wk_dt, 'YYYY.MM.DD') AS wkDt
+            , d.dept_nm                      AS deptNm
+            , rspofc_cd.code_nm              AS roleNm
+            , a.emp_id                       AS empId
+            , e.nm                           AS empNm
+            , CASE
+                  WHEN a.vcatn_id IS NOT NULL THEN vcatn_cd.code_nm
+                  ELSE a.attd_ty
+              END                            AS attdTy
+            , TO_CHAR(a.atdc_tm, 'HH24:MI')  AS attdIn
+            , TO_CHAR(a.afwk_tm, 'HH24:MI')  AS attdOut
+        FROM tb_attd a
+           JOIN tb_emp e
+             ON a.emp_id  = e.emp_id
+            AND a.vend_id = e.vend_id
+      LEFT JOIN tb_dept d
+             ON e.dept_id = d.dept_id
+            AND d.vend_id = e.vend_id
+      LEFT JOIN tb_vcatn v
+             ON a.vcatn_id = v.vcatn_id
+      LEFT JOIN tb_code vcatn_cd             <!-- 휴가유형 코드명 조인 -->
+             ON vcatn_cd.code_id = v.vcatn_ty
+            AND (vcatn_cd.vend_id IS NULL OR vcatn_cd.vend_id = a.vend_id)
+      LEFT JOIN tb_code rspofc_cd            <!-- 직급 코드명 조인 -->
+             ON rspofc_cd.code_id = e.rspofc
+            AND (rspofc_cd.vend_id IS NULL OR rspofc_cd.vend_id = e.vend_id)
+        WHERE a.vend_id = #{vendId}
+
+        <!-- 부서 조건 -->
+        <if test="deptId != null and deptId != ''">
+            AND e.dept_id = #{deptId}
+        </if>
+
+        <!-- 사원명 like 검색 -->
+        <if test="empNmCond != null and empNmCond != ''">
+            AND e.nm LIKE '%' || #{empNmCond} || '%'
+        </if>
+
+        <!-- 시작일만 입력된 경우: 시작일 이상 -->
+        <if test="startDt != null and startDt != '' and (endDt == null or endDt == '')">
+            AND a.wk_dt &gt;= TO_DATE(#{startDt}, 'YYYY-MM-DD')
+        </if>
+
+        <!-- 종료일만 입력된 경우: 종료일 이하 -->
+        <if test="(startDt == null or startDt == '') and endDt != null and endDt != ''">
+            AND a.wk_dt &lt;= TO_DATE(#{endDt}, 'YYYY-MM-DD')
+        </if>
+
+        <!-- 둘 다 있는 경우: BETWEEN -->
+        <if test="startDt != null and startDt != '' and endDt != null and endDt != ''">
+            AND a.wk_dt BETWEEN TO_DATE(#{startDt}, 'YYYY-MM-DD')
+                            AND TO_DATE(#{endDt},   'YYYY-MM-DD')
+        </if>
+
+        ORDER BY a.wk_dt DESC, d.dept_nm, e.nm
+    </select>
+
+    <!-- ============================
+         일반 사용자: 본인 근태만 조회
+       ============================ -->
+    <select id="selectAttdListUser"
+            parameterType="store.yd2team.insa.service.AttdStatusVO"
+            resultType="store.yd2team.insa.service.AttdStatusVO">
+
+        SELECT
+              TO_CHAR(a.wk_dt, 'YYYY.MM.DD') AS wkDt
+            , d.dept_nm                      AS deptNm
+            , rspofc_cd.code_nm              AS roleNm
+            , a.emp_id                       AS empId
+            , e.nm                           AS empNm
+            , CASE
+                  WHEN a.vcatn_id IS NOT NULL THEN vcatn_cd.code_nm
+                  ELSE a.attd_ty
+              END                            AS attdTy
+            , TO_CHAR(a.atdc_tm, 'HH24:MI')  AS attdIn
+            , TO_CHAR(a.afwk_tm, 'HH24:MI')  AS attdOut
+        FROM tb_attd a
+           JOIN tb_emp e
+             ON a.emp_id  = e.emp_id
+            AND a.vend_id = e.vend_id
+      LEFT JOIN tb_dept d
+             ON e.dept_id = d.dept_id
+            AND d.vend_id = e.vend_id
+      LEFT JOIN tb_vcatn v
+             ON a.vcatn_id = v.vcatn_id
+      LEFT JOIN tb_code vcatn_cd             <!-- 휴가유형 코드명 조인 -->
+             ON vcatn_cd.code_id = v.vcatn_ty
+            AND (vcatn_cd.vend_id IS NULL OR vcatn_cd.vend_id = a.vend_id)
+      LEFT JOIN tb_code rspofc_cd            <!-- 직급 코드명 조인 -->
+             ON rspofc_cd.code_id = e.rspofc
+            AND (rspofc_cd.vend_id IS NULL OR rspofc_cd.vend_id = e.vend_id)
+        WHERE a.vend_id = #{vendId}
+          AND a.emp_id  = #{loginEmpId}
+
+        <!-- 날짜 조건 동일하게 적용 -->
+        <if test="startDt != null and startDt != '' and (endDt == null or endDt == '')">
+            AND a.wk_dt &gt;= TO_DATE(#{startDt}, 'YYYY-MM-DD')
+        </if>
+
+        <if test="(startDt == null or startDt == '') and endDt != null and endDt != ''">
+            AND a.wk_dt &lt;= TO_DATE(#{endDt}, 'YYYY-MM-DD')
+        </if>
+
+        <if test="startDt != null and startDt != '' and endDt != null and endDt != ''">
+            AND a.wk_dt BETWEEN TO_DATE(#{startDt}, 'YYYY-MM-DD')
+                            AND TO_DATE(#{endDt},   'YYYY-MM-DD')
+        </if>
+
+        ORDER BY a.wk_dt DESC, d.dept_nm, e.nm
+    </select>
+
+</mapper>

@@ -1,0 +1,603 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml"
+	xmlns:th="http://www.thymeleaf.org"
+	xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+	layout:decorate="~{layout}">
+<head>
+<meta charset="UTF-8">
+<title>공통 코드 관리</title>
+
+<!-- Toast UI Grid -->
+<link rel="stylesheet"
+	href="https://uicdn.toast.com/grid/latest/tui-grid.css" />
+<script src="https://uicdn.toast.com/grid/latest/tui-grid.js"></script>
+
+<style>
+/* form-select 색상은 style.css 공통 사용 → 별도 오버라이드 제거 */
+.common-code-wrapper #groupGrid, .common-code-wrapper #codeGrid {
+	width: 100%;
+	margin-top: 4px;
+}
+
+.common-code-wrapper .card-title {
+	font-weight: 600;
+}
+
+/* 제목 h5 아래 여백 줄이기 */
+.common-code-wrapper .card-header-left h5 {
+	margin-bottom: 0;
+}
+
+/* 버튼 간격은 style.css 의 .card-header-right(gap) 공통 사용 → 여기선 추가 마진 제거 */
+
+/* 자동완성 UL 공통 스타일 */
+#codeGroupSuggest {
+	max-height: 200px;
+	overflow-y: auto;
+	background: #ffffff;
+	border: 1px solid #dee2e6;
+	padding: 0;
+	margin-top: 2px;
+	z-index: 2000; /* 이미 넣어놨으면 그대로 둬도 됨 */
+}
+
+/* 각 아이템 텍스트 확실히 보이게 */
+#codeGroupSuggest .autocomplete-item {
+	font-size: 0.9rem; /* 혹시 상위에서 0으로 잡았을 경우 대비 */
+	color: #212529 !important; /* 검정에 가깝게 */
+	background-color: #ffffff;
+	cursor: pointer;
+}
+
+/* hover 시 강조 */
+#codeGroupSuggest .autocomplete-item:hover, #codeGroupSuggest .autocomplete-item:focus
+	{
+	background-color: #f8f9fa;
+}
+</style>
+</head>
+
+<body layout:fragment="content">
+	<div class="common-code-wrapper">
+
+		<!-- 공통 코드 조회 카드 -->
+		<div class="row">
+			<div class="col-md-12 mb-3">
+				<div class="card">
+
+					<!-- 헤더: 제목 + 초기화/조회 버튼 -->
+					<div class="card-header">
+						<div class="card-header-left">
+							<h5 class="card-title">공통 코드 조회</h5>
+						</div>
+						<div class="card-header-right">
+							<button id="btnReset" class="btn btn-dark" type="button">초기화</button>
+							<button id="btnSearch" class="btn btn-outline-dark" type="button">조회</button>
+						</div>
+					</div>
+
+					<div class="card-body">
+						<div class="row mb-2">
+							<div class="col-md-3">
+								<label for="codeGroupName" class="form-label">코드 그룹 명</label>
+
+								<!-- [자동완성][추가] 코드 그룹명 input + 추천 목록을 함께 감싸는 래퍼 -->
+								<div class="position-relative">
+									<!-- [자동완성][기존 input에 autocomplete="off"만 추가] -->
+									<input id="codeGroupName" type="text" class="form-control"
+										placeholder="코드 그룹 명을 입력해주세요" autocomplete="off">
+									<!-- 브라우저 기본 자동완성 끄기 -->
+
+									<!-- [자동완성][추가] 코드 그룹명 자동완성 후보 리스트 -->
+									<ul id="codeGroupSuggest"
+										class="list-group position-absolute w-100"
+										style="z-index: 2000;">
+										<!-- JS에서 <li> 항목이 동적으로 추가됨 -->
+									</ul>
+								</div>
+
+								<!-- 필요하면 그룹 ID용 hidden 추가 (예시)
+                            <input type="hidden" id="codeGroupId" name="codeGroupId">
+                            -->
+							</div>
+							<div class="col-md-3">
+								<label for="codeGroupRegYn" class="form-label">코드 저장 여부</label>
+								<div class="position-relative">
+									<select id="codeGroupRegYn" name="codeGroupRegYn"
+										class="form-select">
+										<option value="">선택</option>
+										<option value="N">가능</option>
+										<option value="Y">불가능</option>
+									</select>
+								</div>
+							</div>
+						</div>
+					</div>
+
+				</div>
+			</div>
+		</div>
+
+		<!-- 좌측: 그룹 Grid / 우측: 코드 Grid -->
+		<div class="row">
+			<!-- 그룹 Grid 카드 -->
+			<div class="col-md-6">
+				<div class="card mb-3">
+
+					<!-- 헤더: 코드 그룹 목록 -->
+					<div class="card-header">
+						<div class="card-header-left">
+							<h5 class="card-title">코드 그룹 목록</h5>
+						</div>
+					</div>
+
+					<div class="card-body">
+						<div id="groupGrid"></div>
+					</div>
+				</div>
+			</div>
+
+			<!-- 코드 Grid 카드 -->
+			<div class="col-md-6">
+				<div class="card mb-3">
+
+					<!-- 헤더: 공통 코드 목록 -->
+					<div class="card-header">
+						<div class="card-header-left">
+							<h5 class="card-title">공통 코드 목록</h5>
+						</div>
+						<div class="card-header-right">
+							<!-- <button id="addRowBtn" class="btn btn-outline-dark">행추가</button> -->
+							<div th:replace="~{fragments/buttons :: addRowButton('MENU_COMM_001', 'addRowBtn')}"></div>
+							<!-- <button id="insertBtn" type="button" class="btn btn-outline-dark">저장</button> -->
+							
+							<div th:replace="~{fragments/buttons :: saveButton('MENU_COMM_001', 'insertBtn')}"></div>
+						</div>
+					</div>
+
+					<div class="card-body">
+						<div id="codeGrid"></div>
+					</div>
+				</div>
+			</div>
+		</div>
+
+	</div>
+
+	<script>
+  document.addEventListener('DOMContentLoaded', function () {
+
+    // Toast Grid 로딩 확인
+    if (!window.tui || !tui.Grid) {
+      return;
+    }
+
+    // ==========================
+    // 0. 현재 선택된 그룹 ID 저장용
+    // ==========================
+    let currentGrpId = null;
+
+    // ==========================
+    // 1. Grid 공통 옵션
+    // ==========================
+    const commonGridOptions = {
+      bodyHeight: 440,
+      scrollX: false,
+      scrollY: true,
+      rowHeaders: [],
+      columnOptions: {
+        minWidth: 80,
+        resizable: true,
+        editingEvent: 'click'
+      }
+    };
+
+    // ==========================
+    // 2. Grid 생성 (초기 데이터는 빈 배열)
+    // ==========================
+    const groupGrid = new tui.Grid({
+      el: document.getElementById('groupGrid'),
+      data: [],
+      ...commonGridOptions,
+      columns: [
+        { header: '그룹 ID', name: 'groupId' },
+        { header: '코드 그룹 명', name: 'groupName' },
+        { header: '설명', name: 'description' },
+        { header: '코드 저장 여부', name: 'oprtrYn', sortable: true }
+      ]
+    });
+
+    const codeGrid = new tui.Grid({
+      el: document.getElementById('codeGrid'),
+      data: [],
+      ...commonGridOptions,
+      columns: [
+        {
+          header: '코드 ID',
+          name: 'codeId',
+          formatter: ({ value }) => {
+            if (value === null || value === undefined || value === '') {
+              return '자동 입력됩니다.';
+            }
+            return value;
+          }
+        },
+        {
+          header: '코드 명',
+          name: 'codeName',
+          editor: 'text',
+          formatter: ({ value }) => {
+            if (value === null || value === undefined || value === '') {
+              return '코드 명을 입력해주세요';
+            }
+            return value;
+          }
+        },
+        {
+          header: '사용 여부',
+          name: 'useYn',
+          editor: {
+            type: 'select',
+            options: {
+              listItems: [
+                { text: '사용',   value: 'Y' },
+                { text: '미사용', value: 'N' }
+              ]
+            }
+          },
+          formatter: function ({ value }) {
+            if (value === null || value === undefined || value === '') {
+              return '사용/미사용 선택해주세요';
+            }
+            if (value === 'Y') return '사용';
+            if (value === 'N') return '미사용';
+            return value;
+          }
+        },
+        {
+            header: '수정 가능 여부',
+            name: 'modifyYn',      // 데이터 필드 이름
+            align: 'center',
+            sortable: true,
+            formatter: ({ value }) => {
+              if (value === 'Y') return '수정 가능';
+              if (value === 'N') return '수정 불가능';
+              return value || '';
+            }
+          }
+      ]
+    });
+
+    // 필수 컬럼 헤더(*) 표시 (공통 유틸 사용)
+    if (window.TeamCommon && TeamCommon.grid && typeof TeamCommon.grid.applyRequiredHeaders === 'function') {
+      TeamCommon.grid.applyRequiredHeaders([
+        { gridId: 'codeGrid', columns: ['codeName', 'useYn'] }
+      ]);
+    }
+
+    // ==========================
+    // 3. 초기화 버튼
+    // ==========================
+    const $btnReset = document.getElementById('btnReset');
+    const $codeGroupName = document.getElementById('codeGroupName');
+    const $codeGroupRegYn = document.getElementById('codeGroupRegYn');
+
+    if ($btnReset && $codeGroupName) {
+      $btnReset.addEventListener('click', function () {
+        $codeGroupName.value = '';
+        $codeGroupRegYn.value = '';
+        
+        groupGrid.resetData([]);
+        codeGrid.resetData([]);
+        currentGrpId = null;
+      });
+    }
+
+    // ==========================
+    // 4. 행 추가 버튼
+    // ==========================
+    const addRowBtn = document.getElementById('addRowBtn');
+
+    if (addRowBtn) {
+      addRowBtn.addEventListener('click', () => {
+        if (!currentGrpId) {
+          alert('왼쪽에서 먼저 코드 그룹을 선택해주세요.');
+          return;
+        }
+
+        codeGrid.prependRow(
+          {
+            codeId: '',
+            codeName: '',
+            useYn: '',
+            modifyYn: 'Y'
+          },
+          { focus: true }
+        );
+      });
+    }
+
+    // ==========================
+    // 5. 코드 그룹명 자동완성 (공통 유틸 사용)
+    // ==========================
+    if (window.TeamCommon && TeamCommon.autocomplete && typeof TeamCommon.autocomplete.init === 'function') {
+
+      TeamCommon.autocomplete.init({
+        inputSelector: '#codeGroupName',
+        listSelector: '#codeGroupSuggest',
+        url: '/code/auto',
+        paramName: 'keyword',
+        minLength: 1,
+        delay: 300,
+        mapResponse: function (item) {
+          return {
+            id: item.groupId,
+            label: item.grpNm,
+            value: item.grpNm
+          };
+        },
+        onSelect: function (item) {
+          document.getElementById('codeGroupName').value = item.value;
+        }
+      });
+
+    } else {
+      console.warn('TeamCommon.autocomplete.init 을 찾을 수 없습니다. teamUtil.js / autocomplete 유틸 로딩 확인');
+    }
+
+    // ==========================
+    // 6. 그룹 목록 조회
+    // ==========================
+    const btnClick = document.getElementById('btnSearch');
+
+    if (btnClick) {
+      btnClick.addEventListener('click', function () {
+        const keyword = $codeGroupName.value.trim();
+        const oprtrYn = $codeGroupRegYn ? $codeGroupRegYn.value : '';
+        getGroupList(keyword, oprtrYn);
+      });
+    }
+
+    function getGroupList(grpNm, oprtrYn) {
+      const body = { 
+    		  grpNm: grpNm,
+    		  oprtrYn: oprtrYn	  
+      };
+
+      fetch("/code/grpNm", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(body)
+      })
+        .then(res => {
+          if (!res.ok) {
+            throw new Error("서버 오류: " + res.status);
+          }
+          return res.json();
+        })
+        .then(result => {
+          const mapped = result.map(row => ({
+            groupId: row.grpId,
+            groupName: row.grpNm,
+            description: row.dc,
+            useYn: row.useYn,
+            oprtrYn: row.oprtrYn === 'Y' ? '불가능' : '가능'
+          }));
+
+          groupGrid.resetData(mapped);
+          codeGrid.resetData([]);
+          currentGrpId = null;
+        })
+        .catch(err => {
+          console.error("코드 그룹 조회 중 오류", err);
+        });
+    }
+
+    // ==========================
+    // 7. 특정 그룹의 코드 목록 조회 함수
+    // ==========================
+    function loadCodeListByGrpId(grpId) {
+      if (!grpId) return;
+
+      fetch('/code/codeId', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ grpId: grpId })
+      })
+        .then(function (res) {
+          if (!res.ok) {
+            throw new Error('서버 오류: ' + res.status);
+          }
+          return res.json();
+        })
+        .then(function (result) {
+          const mapped = result.map(function (row) {
+            return {
+              codeId: row.codeId,
+              codeName: row.codeNm,
+              useYn: row.yn,
+              modifyYn: row.vendId ? 'Y' : 'N'
+            };
+          });
+
+          codeGrid.resetData(mapped);
+        })
+        .catch(function (err) {
+          console.error('코드 목록 조회 중 오류', err);
+        });
+    }
+
+    // ==========================
+    // 8. 그룹 Grid 클릭 → currentGrpId 설정 + 코드 조회
+    // ==========================
+    groupGrid.on('click', function (ev) {
+      if (ev.targetType !== 'cell') {
+        return;
+      }
+
+      const row = groupGrid.getRow(ev.rowKey);
+      if (!row) return;
+
+      const grpId = row.groupId;
+      currentGrpId = grpId;
+      console.log('선택된 grpId:', grpId);
+
+      loadCodeListByGrpId(grpId);
+    });
+
+    // ==========================
+    // 9. 저장 버튼: 신규 행들 INSERT
+    // ==========================
+    const insertBtn = document.getElementById('insertBtn');
+
+    if (insertBtn) {
+      insertBtn.addEventListener('click', async function () {
+        if (!currentGrpId) {
+          alert('왼쪽에서 코드 그룹을 먼저 선택한 후, 행을 추가/수정하고 저장하세요.');
+          return;
+        }
+
+        // ✅ 현재 편집 중인 셀 값 강제 반영
+        codeGrid.finishEditing();
+
+        const modified = codeGrid.getModifiedRows();
+        const createdRows = modified.createdRows || [];  // 신규(저장)
+        const updatedRows = modified.updatedRows || [];  // 수정
+
+        // 저장 + 수정 대상 모두 합치기
+        const targetRows = [
+          ...createdRows.map(r => ({ ...r, _type: 'insert' })),
+          ...updatedRows.map(r => ({ ...r, _type: 'update' }))
+        ];
+
+        if (targetRows.length === 0) {
+          alert('저장/수정할 코드 행이 없습니다.\n행을 추가하거나 기존 행을 수정한 후 다시 시도해주세요.');
+          return;
+        }
+
+        // 필수값 검증 (코드 명, 사용 여부)
+        for (let i = 0; i < targetRows.length; i++) {
+          const row = targetRows[i];
+          if (!row.codeName || !row.useYn) {
+            alert(
+              '코드 행에 빈 값이 있습니다.\n' +
+              '코드 명과 사용 여부는 모두 필수입니다.\n' +
+              '→ 그리드에서 해당 행을 확인해주세요.'
+            );
+            return;
+          }
+        }
+
+        // 🔹 여기부터: 순차로 한 건씩 서버 호출
+        const results = [];
+
+        for (let i = 0; i < targetRows.length; i++) {
+          const row = targetRows[i];
+          const isUpdate = row._type === 'update';
+          const url = isUpdate ? '/code/modCode' : '/code/regCode';
+
+          const payload = {
+            grpId: currentGrpId,
+            // 수정일 때만 codeId 전달, 저장일 때는 null
+            codeId: isUpdate ? row.codeId : null,
+            codeNm: row.codeName,
+            yn: row.useYn,
+            vendId: null   // TODO: 거래처별 코드 필요하면 나중에 세팅
+          };
+
+          try {
+            const res = await fetch(url, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify(payload)
+            });
+
+            let data;
+            if (!res.ok) {
+              data = {
+                success: false,
+                message: '서버 오류: ' + res.status
+              };
+            } else {
+              data = await res.json();   // CodeRegResponseDto {success, message, codeId}
+            }
+
+            data._type = row._type;
+            data._rowIndex = i;
+            results.push(data);
+
+          } catch (err) {
+            console.error('코드 저장 요청 중 오류', err);
+            results.push({
+              success: false,
+              message: '통신 오류가 발생했습니다.',
+              _type: row._type,
+              _rowIndex: i
+            });
+          }
+        }
+
+        // 🔹 여기부터는 기존 Promise.all 결과 처리 로직 그대로 재사용
+        try {
+          let insertCount = 0;
+          let updateCount = 0;
+          const failMessages = [];
+
+          results.forEach(function (res) {
+            const isUpdate = res && res._type === 'update';
+            const rowNo = (res && typeof res._rowIndex === 'number')
+              ? res._rowIndex + 1
+              : '?';
+            const typeLabel = isUpdate ? '수정' : '저장';
+
+            if (res && res.success) {
+              if (isUpdate) {
+                updateCount++;
+              } else {
+                insertCount++;
+              }
+            } else {
+              const msg = (res && res.message) ? res.message : '알 수 없는 오류';
+              failMessages.push(`행 ${rowNo} (${typeLabel}): ${msg}`);
+            }
+          });
+
+          let alertMsg = '';
+          if (insertCount > 0) {
+            alertMsg += insertCount + '건의 코드가 저장되었습니다.\n';
+          }
+          if (updateCount > 0) {
+            alertMsg += updateCount + '건의 코드가 수정되었습니다.\n';
+          }
+          if (failMessages.length > 0) {
+            alertMsg += '\n실패한 행이 있습니다.\n' + failMessages.join('\n');
+          }
+
+          alert(alertMsg || '처리된 내용이 없습니다.');
+
+          if (insertCount > 0 || updateCount > 0) {
+            // 저장 후 목록 새로고침
+            loadCodeListByGrpId(currentGrpId);
+          }
+        } catch (err) {
+          console.error('코드 저장 처리 중 오류', err);
+          alert('코드 저장 중 알 수 없는 오류가 발생했습니다.\n관리자에게 문의해주세요.');
+        }
+      });
+    }
+
+
+
+  }); // end DOMContentLoaded
+</script>
+
+
+
+</body>
+</html>

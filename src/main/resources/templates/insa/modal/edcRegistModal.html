@@ -1,0 +1,95 @@
+<!-- /templates/insa/modal/edcRegistModal.html -->
+<div th:fragment="registModal">
+  <!-- ✅ 모달 본체 -->
+  <div class="modal-backdrop" id="registBackdrop"></div>
+  <div class="modal" id="registModal">
+    <div class="modal-dialog modal-dialog-centered" style="--bs-modal-width: 800px;">
+      <div class="modal-content">
+        <!-- 바디 -->
+				<div class="modal-body">
+					<div class="row mb-2">
+						<div class="col-md-10">
+							<h5 class="modal-title">법정의무교육 등록</h5>							
+						</div>
+						<div class="col-md-2">
+							<button id="edcCreate" class="btn btn-outline-dark">등록</button>
+						</div>
+					</div>
+					<div class="row mb-2">
+						<div class="col-md-6">
+							<label class="form-label">교육명</label> <input type="text"
+								id="m_edcNm" class="form-control" />
+						</div>
+						<div class="col-md-6">
+							<label class="form-label">교육구분</label> <select id="m_edcTy"
+								class="form-select edcJohoe">								
+								<option value="법정의무교육">법정의무교육</option>
+								<option value="직무교육">직무교육</option>
+								<option value="소양교육">소양교육</option>
+								<option value="사내교육">사내교육</option>
+							</select>
+						</div>
+					</div>
+					<!-- <div class="row mb-2">
+						<div class="col-md-6">
+							<label class="form-label">기관명</label> <input type="text"
+								class="form-control" />
+						</div>
+						<div class="col-md-6">
+							<label class="form-label">강사</label> <input type="text"
+								class="form-control" />
+						</div>
+					</div> -->
+					<div class="row mb-2">
+						<div class="col-md-6">
+							<label class="form-label">교육 시작날짜</label> <input type="date"
+								id="m_edcBeginDt" class="form-control" />
+						</div>
+						<div class="col-md-6">
+							<label class="form-label">교육 종료날짜</label> <input type="date"
+								id="m_edcEndDt" class="form-control" />
+						</div>
+					</div>
+					<div class="row mb-2">
+						<div class="col-md-6">
+							<label class="form-label">수료기준</label> <input type="text" readonly="readonly"
+								value="영상 80% 이상 시 수료" class="form-control " />
+						</div>
+						<div class="col-md-6">
+							<label class="form-label">교육대상자 선정범위</label> <select
+								id="m_edcSel" class="form-select">
+								<option value="all">전체</option>
+								<optgroup label="부서">
+									<th:block th:each="val : ${dept}">
+										<option th:value="${val.deptId}" th:text="${val.deptNm}"></option>
+									</th:block>
+									
+									
+								</optgroup>
+								<optgroup label="직급">
+									<th:block th:each="tier : ${grade}">
+										<option th:value="${tier.codeId}" th:text="${tier.codeNm}"></option>
+									</th:block>
+									
+								</optgroup>
+								<optgroup label="직책">
+									<th:block th:each="job : ${title}">
+										<option th:value="${job.codeId}" th:text="${job.codeNm}"></option>
+									</th:block>
+									
+								</optgroup>
+							</select>
+						</div>
+					</div>
+					<div class="row mb-2">
+						<div class="col-md-6">
+							<label class="form-label">비고</label> <input type="text"
+								id="m_rm" class="form-control" />
+						</div>
+
+					</div>
+				</div>
+      </div>
+    </div>
+  </div>
+</div>

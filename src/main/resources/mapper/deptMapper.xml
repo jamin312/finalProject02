@@ -1,0 +1,105 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="store.yd2team.insa.mapper.DeptMapper">
+
+<select id="getListDept">
+ SELECT
+ a.*
+ ,b.dept_nm "upr_dept_nm"
+ ,c.nm
+FROM tb_dept a
+left join tb_dept b
+on a.upr_dept_id = b.dept_id
+join tb_emp c
+on a.emp_id = c.emp_id
+WHERE   (a.vend_id IS NULL OR a.vend_id = #{vendId})
+</select>
+
+<select id="getOrgRenderList">
+select
+  a.emp_id
+ ,a.dept_id
+ ,a.nm
+ ,a.dty
+ ,a.proof_photo
+ ,b.emp_id "dept_head_id"
+ ,b.dept_nm
+ ,b.upr_dept_id
+ ,e.code_nm AS clsf_nm
+ ,d.code_nm AS rspofc_nm
+ ,e.code_nm AS emplymTy_nm
+ ,f.code_nm AS hffcSt_nm
+from tb_emp a
+join tb_dept b
+on a.dept_id = b.dept_id
+LEFT JOIN tb_code c ON a.clsf = c.code_id
+LEFT JOIN tb_code d ON a.rspofc = d.code_id
+LEFT JOIN tb_code e ON a.emplym_ty = e.code_id
+LEFT JOIN tb_code f ON a.hffc_st = f.code_id
+where a.vend_id = #{vendId}
+order by a.dept_id desc
+</select>
+
+<update id="mergeDept">
+MERGE INTO tb_dept t
+	    USING (
+	        SELECT 
+	            #{deptId}   AS dept_id
+		    ,#{empId}   AS emp_id
+		    ,#{uprDeptId}   AS upr_dept_id
+		    ,#{deptNm}   AS dept_nm
+		    ,#{vendId}   AS vend_id	            
+	        FROM dual
+	    ) s
+	    ON (t.dept_id = s.dept_id)
+	
+	    WHEN MATCHED THEN
+	        UPDATE SET
+	           t.emp_id = s.emp_id
+	           ,t.upr_dept_id = s.upr_dept_id
+	           ,t.dept_nm = s.dept_nm
+	           ,t.updt_dt = SYSDATE
+	           ,t.updt_by = 'myk'	            	
+	    WHEN NOT MATCHED THEN
+	        INSERT (
+	            dept_id
+		        ,emp_id
+		        ,upr_dept_id
+		        ,dept_nm
+		        ,vend_id
+		        ,crea_by	
+	        ) VALUES (
+	            fn_dept_id()
+                ,s.emp_id
+                ,s.upr_dept_id
+                ,s.dept_nm
+                ,s.vend_id
+                ,'myk'		            
+	        )
+</update>
+
+<update id="empForMerge">
+update tb_emp
+set
+ dept_id = #{deptId}
+where emp_id = #{empId}
+</update>
+
+<select id="getNonManagerEmployeeIds">
+select
+ emp_id
+ ,dept_id
+ ,nm
+from tb_emp
+where emp_id not in (select emp_id
+                from tb_dept)
+and vend_id = #{vendId}
+</select>
+
+<delete id="deleteDept">
+delete
+from tb_dept
+where dept_id = #{deptId}
+</delete>
+
+</mapper>

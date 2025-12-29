@@ -1,0 +1,600 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml"
+	xmlns:th="http://www.thymeleaf.org"
+	xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+	layout:decorate="~{layout}">
+
+<head>
+<meta charset="UTF-8">
+
+<title>employee-register</title>
+
+<style>
+.fixed-photo {
+	width: 150px; /* 원하는 가로 크기 */
+	height: 200px; /* 원하는 세로 크기 */
+	object-fit: cover; /* 비율 유지하며 영역에 맞게 채움 */
+	cursor: pointer;
+}
+
+.readonly-input[readonly] {
+	background-color: #e9ecef; /* Bootstrap 기본 disabled 색상 */
+	cursor: not-allowed; /* 마우스 커서도 입력 불가 느낌 */
+}
+
+.form-select {
+	color: #000 !important;
+}
+
+.stIsShow {
+	display: none;
+}
+</style>
+</head>
+<body layout:fragment="content">
+
+	<div class="row">
+		<div class="col-md-12 mb-3">
+			<div class="card">
+				<!-- 카드 헤더 : 제목 + 초기화/조회 버튼 -->
+				<div class="card-header">
+					<div class="card-header-left">
+						<h5 class="card-title">조회</h5>
+					</div>
+					<div class="card-header-right">
+						<button class="btn btn-dark" id="empReset">초기화</button>
+						<button onclick="getList(this)" class="btn btn-outline-dark">조회</button>
+					</div>
+				</div>
+				<div class="card-body">
+
+
+					<div class="row mb-2">
+						<div class="col-md-3">
+							<label class="form-label">이름</label> <input id="nm" type="text"
+								class="form-control empJohoe" placeholder="Value">
+						</div>
+						<div class="col-md-3">
+							<label class="form-label">사번</label> <input id="empId"
+								type="text" class="form-control empJohoe" placeholder="Value">
+						</div>
+						<div class="col-md-3">
+							<label class="form-label">부서</label> <select id="deptNm"
+								class="form-select empJohoe">
+								<option value="">전체</option>
+								<th:block th:each="val : ${dept}">
+									<option th:value="${val.deptId}" th:text="${val.deptNm}"></option>
+								</th:block>
+							</select>
+						</div>
+						<div class="col-md-3">
+							<label class="form-label">직급</label> <select id="clsf"
+								class="form-select empJohoe">
+								<option value="">전체</option>
+								<th:block th:each="tier : ${clsfLi}">
+									<option th:value="${tier.codeId}" th:text="${tier.codeNm}"></option>
+								</th:block>
+							</select>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+	<div class="row">
+		<!-- 검색조건 -->
+		<div class="col-md-6">
+			<!-- 사원목록 -->
+			<div class="card" style="height: 595.95px;">
+				<!-- 카드 헤더 : 제목 + 초기화/조회 버튼 -->
+				<div class="card-header">
+					<div class="card-header-left">
+						<h5 class="card-title">사원목록</h5>
+					</div>
+				</div>
+				<div class="card-body">
+
+					<div id="employeeGrid" style="margin: 20px;"></div>
+				</div>
+			</div>
+		</div>
+
+		<!-- 우측 패널 -->
+		<div class="col-md-6">
+			<!-- 기본정보 -->
+			<div class="card mb-3">
+				<!-- 카드 헤더 : 제목 + 초기화/조회 버튼 -->
+				<div class="card-header">
+					<div class="card-header-left">
+						<h5 class="card-title">기본정보&인사정보</h5>
+					</div>
+					<div class="card-header-right">
+						<button class="btn btn-outline-dark stIsShow" id="emp-deta">근로계약서</button>
+						<!-- <button class="btn btn-outline-dark" id="btn-save">등록</button> -->
+						<div th:replace="~{fragments/buttons :: saveButton('MENU_HR_001', 'btn-save')}"></div>
+						<!-- <button class="btn btn-outline-danger ">삭제</button> -->
+					</div>
+				</div>
+				<div class="card-body ">
+
+
+					<div class="row">
+						<div class="col-md-4 text-center">
+							<img id="v_proofPhoto" src="/images/profil/nonUser.jpeg" alt="사진"
+								class="img-thumbnail fixed-photo" /> <input type="file"
+								id="photoInput" accept="image/*" style="display: none;">
+						</div>
+						<div class="col-md-8">
+							<div class="row mb-2">
+								<div class="col-md-6">
+									<label class="form-label ">사번</label> <input id="v_empId"
+										type="text" class="form-control readonly-input"
+										readonly="readonly" placeholder="사번(자동생성)" /> <input
+										id="v_vendId" th:value="${vendId}" type="text" style="display: none;">
+								</div>
+								<div class="col-md-6">
+									<label for="userName" class="form-label">입사일</label>
+									<div class="input-group date js-date-single">
+										<input id="v_encpn" type="text"
+											class="form-control datepicker js-date-input"
+											placeholder="날짜 선택"> <span
+											class="input-group-text js-date-icon"> <i
+											class="bi bi-calendar"></i>
+										</span>
+									</div>
+								</div>
+							</div>
+							<div class="row mb-2">
+								<div class="col-md-6">
+									<label class="form-label">이름</label> <input id="v_nm"
+										type="text" class="form-control" placeholder="홍길동" />
+								</div>
+								<div class="col-md-6">
+									<label for="userName" class="form-label">생년월일</label>
+									<div class="input-group date js-date-single">
+										<input id="v_brthdy" type="text"
+											class="form-control datepicker js-date-input"
+											placeholder="날짜 선택"> <span
+											class="input-group-text js-date-icon"> <i
+											class="bi bi-calendar"></i>
+										</span>
+									</div>
+								</div>
+							</div>
+							<div class="row mb-2">
+								<div class="col-md-6">
+									<label class="form-label">연락처</label> <input id="v_cttpc"
+										type="text" class="form-control" placeholder="010-1234-1234" />
+								</div>
+								<div class="col-md-6">
+									<label class="form-label">이메일</label> <input id="v_email"
+										type="email" class="form-control" placeholder="abc@mail.com" />
+								</div>
+							</div>
+						</div>
+					</div>
+
+					<div class="row mb-2">
+
+						<div class="col-md-2">
+							<label class="form-label">부서</label> <select id="v_deptId"
+								class="form-select">
+								<th:block th:each="val : ${dept}">
+									<option th:value="${val.deptId}" th:text="${val.deptNm}"></option>
+								</th:block>
+							</select>
+						</div>
+						<div class="col-md-3">
+							<label class="form-label">직책</label> <select id="v_rspofc"
+								class="form-select">
+								<th:block th:each="job : ${rspofcLi}">
+									<option th:value="${job.codeId}" th:text="${job.codeNm}"></option>
+								</th:block>
+							</select> 
+						</div>
+
+						<div class="col-md-2">
+							<label class="form-label">직급</label> <select id="v_clsf"
+								class="form-select">
+								<th:block th:each="tier : ${clsfLi}">
+									<option th:value="${tier.codeId}" th:text="${tier.codeNm}"></option>
+								</th:block>
+							</select>
+						</div>
+
+						<div class="col-md-3">
+							<label class="form-label">고용형태</label> <select id="v_emplymTy"
+								class="form-select">
+								<th:block th:each="val : ${emplymTyLi}">
+									<option th:value="${val.codeId}" th:text="${val.codeNm}"></option>
+								</th:block>
+							</select>
+						</div>
+
+						<div class="col-md-2">
+							<label class="form-label">재직상태</label> <select id="v_hffcSt"
+								class="form-select">
+								<th:block th:each="val : ${hffcStLi}">
+									<option th:value="${val.codeId}" th:text="${val.codeNm}"></option>
+								</th:block>
+							</select>
+						</div>
+
+					</div>
+
+					<div class="row mb-2">
+						<div class="col-md-4">
+							<label class="form-label">직무</label> <input id="v_dty"
+								type="text" class="form-control" placeholder="HRM(인적자원관리)" />
+						</div>
+
+
+						<div class="col-md-4">
+							<label class="form-label">계좌번호</label> <input id="v_acnutno"
+								type="text" class="form-control" placeholder="계좌번호입력" />
+						</div>
+
+						<div class="col-md-4">
+							<label class="form-label">근무형태</label> <select id="v_basiNo"
+								class="form-select">
+								<th:block th:each="val : ${basiLi}">
+									<option th:value="${val.basiNo}" th:text="${val.basiNm}"></option>
+								</th:block>								
+							</select>
+						</div>
+
+					</div>
+
+					<div class="row mb-2">
+
+						<div class="col-md-6">
+							<label class="form-label">급여 방식</label> <select id="v_salaryType"
+								class="form-select">
+								<option value="bslry">기본급</option>
+								<option value="pymhr">시급</option>
+							</select>
+						</div>
+						<div class="col-md-6">
+							<label class="form-label">기본급/시급</label> <input type="text"
+								id="v_salaryInput" class="form-control" placeholder="금액입력"
+								name="monthlySalary" />
+						</div>
+
+					</div>
+
+				</div>
+			</div>
+
+
+		</div>
+	</div>
+
+	<!-- 모달 -->
+	<div th:replace="insa/modal/empRegistModal :: registModal"></div>
+	<div th:replace="insa/modal/empPdfModal :: empPdfModal"></div>
+	<script th:inline="javascript">	
+	function getList(el) {
+		//jquery형식 db요청방식
+		// .empJohoe 클래스 가진 input 값들을 객체로 수집
+		let datas = {};
+		$('.empJohoe').each(function() {
+		    datas[this.id] = $(this).val();
+		});
+
+		// jQuery AJAX 호출
+		$.ajax({
+		    url: "/empJohoe",                // 요청 URL
+		    type: "get",                     // GET 방식 (fetch 코드와 동일)
+		    data: {                          // 쿼리 파라미터 자동 변환
+		        nm: datas.nm,
+		        empId: datas.empId,
+		        deptId: datas.deptNm,
+		        clsf: datas.clsf
+		    }
+		})
+		.done((result) => {
+		    console.log(result);
+		    grid.resetData(result);          // 결과를 grid에 반영
+		})
+		.fail((error) => {
+		    console.error(error);
+		    alert("데이터 요청 중 오류 발생");
+		});
+	}	
+	
+	// 주문서 번호 PdfController로 넘기기
+	$("#emp-deta").on("click", function() {
+		const empIdVal = $("#v_empId").val();
+		console.log("emp아이디값나와라"+empIdVal);
+		$("#empPdfFrame").attr("src", `/empPdfExport?empId=${empIdVal}`);
+		const modalEl = $("#empPdfModal")[0];
+		const modal = new bootstrap.Modal(modalEl);
+		modal.show();
+	});
+	
+
+		// Grid 생성
+		const grid = new tui.Grid({
+			el : document.getElementById('employeeGrid'),
+			data : [],
+			scrollX : false,
+			scrollY : true,
+			minBodyHeight : 0,
+			autoWidth : true,
+			columns : [ {
+				header : '이름',
+				name : 'nm',
+				sortable : 'true'
+			}, {
+				header : '사번',
+				name : 'empId'
+			}, {
+				header : '부서',
+				name : 'deptNm'
+			}, {
+				header : '직급',
+				name : 'clsfNm',
+				align : 'center'
+			} ],
+			bodyHeight : 440, // 본문 높이 고정
+		});
+
+		//부서 옵션선택시 실행이벤트		
+		let basiOptOb = [];
+		  $("#v_deptId").on("change", function() {
+			  basiOptOb = [];
+			  const deptIdVal = $("#v_deptId").val();			  
+			  const deptv = [[${dept}]];
+			  const basiv = [[${basiLi}]];			  
+			  console.log(deptv);
+			  console.log(basiv);
+			  for(let v1 of basiv) {
+				  let optV = {};
+				  if(v1.deptId == deptIdVal) {
+					  optV["basiNo"] = v1.basiNo
+					  optV["basiNm"] = v1.basiNm
+				  	  basiOptOb.push(optV);
+				  }
+			  }
+			  $("#v_basiNo").empty(); // 기존 옵션 제거
+
+			  $.each(basiOptOb, function(index, val) {
+			    $("#v_basiNo").append(
+			      $("<option>", {
+			        value: val.basiNo,
+			        text: val.basiNm
+			      })
+			    );
+			  });
+
+		  });
+				
+		//사진 업로드
+		$(document).ready(function () {
+
+			  // ✅ 이미지 클릭 → 파일 선택창 열기
+			  $("#v_proofPhoto").on("click", function () {
+			    $("#photoInput").trigger("click");
+			  });
+			
+			  // ✅ 파일 선택 시 이미지 미리보기
+			  $("#photoInput").on("change", function (e) {
+			    const file = e.target.files[0];
+			    if (!file) return;
+			
+			    // ✅ 이미지 파일만 허용
+			    if (!file.type.startsWith("image/")) {
+			      alert("이미지 파일만 업로드 가능합니다.");
+			      $(this).val(""); // 파일 입력 초기화
+			      return;
+			    }
+			
+			    const reader = new FileReader();
+			    reader.onload = function (event) {
+			      $("#v_proofPhoto").attr("src", event.target.result); // ✅ 즉시 미리보기
+			    };
+			    reader.readAsDataURL(file);
+			  });
+			  
+			  
+			
+			});
+		
+		let empData = () => {
+			//근로계약서 버튼 관련
+			$("#v_empId").val() == ""? $("#emp-deta").addClass("stIsShow") : $("#emp-deta").removeClass("stIsShow")			
+		}
+		
+		
+		//초기화버튼 눌러서 입력칸 초기화
+		$("#empReset").on("click", () => {
+			$("[id^='v_']").each(function() {
+			    //console.log($(this).attr("id")); // 해당 id 출력
+			    $(this).val("");
+			    if($(this).attr("id") == "v_proofPhoto") {
+			    	$(this).attr("src", "/images/profil/nonUser.jpeg");
+			    }
+			});
+			console.log($("#v_empId").val());
+			empData();
+		})
+		
+		
+		
+		
+		/* =====================================================
+		 * 2. 모달 열고/닫기 
+		 * ===================================================== */
+		
+		 const modal = document.getElementById("registModal");
+		 const back  = document.getElementById("registBackdrop");
+		 function syncParentToModal() {
+			  const parentInputs = document.querySelectorAll("[id^='v_']");
+
+			  parentInputs.forEach(el => {
+			    const key = el.id.replace("v_", "m_");
+			    const target = document.getElementById(key);
+
+			    if (!target) return;
+
+			    if (el.type === "checkbox" || el.type === "radio") {
+			      target.checked = el.checked;
+			    } 
+			    else if (el.tagName === "SELECT") {
+			      target.value = el.value;
+			    } 
+			    else {
+			      target.value = el.value;
+			    }
+			  });
+
+			  // ✅ 이미지도 복사
+			  const parentImg = document.getElementById("v_proofPhoto");
+			  const modalImg  = document.getElementById("m_proofPhoto");
+			  if (parentImg && modalImg) {
+			    modalImg.src = parentImg.src;
+			  }
+			}
+
+		
+		 function openModal() {
+			  if (!modal || !back) return;
+			  syncParentToModal();
+			  modal.classList.add("show");
+			  modal.style.display = "block";
+			  back.style.display = "block";
+			  grid.refreshLayout();			  
+			}
+
+			function closeModal() {
+			  if (!modal || !back) return;
+			  modal.classList.remove("show");
+			  modal.style.display = "none";
+			  back.style.display = "none";
+			}
+
+			// ✅ 모달 바깥 클릭 시 닫기
+			modal.addEventListener("click", function (event) {
+			  if (!event.target.closest(".modal-content")) {
+			    closeModal();
+			  }
+			});
+			
+			//모달페이지 안에서 메소드
+			$(document).ready(function() {
+			  $("#agreeCheck").on("change", function() {
+				  if($("#m_empId").val() == "") {
+					  $(this).is(":checked") ? $("#registBtn").show() : $("#registBtn").hide();					    
+				  }
+			    
+			  });
+			});
+			
+			
+			
+	</script>
+	<script type="module">
+import { bindGridToForm, formToJson } from '/assets/js/teamExportUtil.js';
+//그리드 행 클릭 시 상세정보 입력
+grid.on('click', function(ev) {
+    const rowData = grid.getRow(ev.rowKey);
+    if (!rowData) return;
+
+    bindGridToForm(rowData);      
+	
+	empData();
+    const dto = formToJson();  
+    console.log(dto);
+});
+
+function dbregist(url) {
+				let datas = formToJson();
+				datas["bslry"] = null;
+				datas["pymhr"] = null;	
+				datas[$("#v_salaryType").val()] = $("#v_salaryInput").val();
+
+				const file = $("#photoInput")[0].files[0];
+
+				const formData = new FormData();
+
+				formData.append("empVO", new Blob(
+					[JSON.stringify(datas)],
+					{ type: "application/json" }
+					));
+				
+				if (file) {formData.append("photo", file);}
+				
+				console.log(datas);
+				console.log(formData);
+				// jQuery AJAX - POST 방식으로 JSON 전송
+				 $.ajax({
+				    url: url,                 // 요청 URL
+				    type: "post",                      // POST 방식
+				    contentType: false,   // JSON 전송
+				    data: formData,        // 객체를 JSON 문자열로 변환
+					processData: false				
+				})
+				.done((result) => {
+				    console.log(result);
+				    grid.resetData(result);            // 결과를 grid에 반영
+				})
+				.fail((error) => {
+				    console.error(error);
+				    alert("등록 중 오류 발생");
+				}); 
+			}
+
+function setDbAdd(el) {		
+		let empchk = $("#v_empId").val();
+		if(empchk) {
+			console.log("기존사원");
+			let url = "/empEdit";
+			dbregist(url);
+
+		}else{
+			console.log("신규사원");
+
+			const inputs = document.querySelectorAll(`[id^='v_']`);  
+  for (const input of inputs) {
+//console.log(input.id);
+// 특정 id는 건너뛰기
+  if (input.id == "v_empId") {
+    continue;   // 다음 input으로 넘어감
+  }
+// 특정 id는 건너뛰기
+  if (input.id == "v_proofPhoto") {
+if(input.src != "http://localhost/images/profil/nonUser.jpeg") {
+console.log(input.src);
+continue;
+}else{
+console.log(input.src);
+alert("사진을 넣어주세요.");
+return;
+}
+  }
+
+
+
+
+if(input.value == null || input.value.trim() == "") {
+alert("입력되지 않은 항목이 있습니다.");
+return;
+}
+}
+			openModal();
+		}		
+	}//end of setDbAdd(el)
+
+$("#registBtn").on("click", (event)=>{
+				let url = "/empRegist";
+				console.log("찐 신규등록");
+				dbregist(url);
+				if (event.target.closest(".modal-content")) {
+			    closeModal();
+			  }
+			});
+
+$("#btn-save").on("click", (e) =>{setDbAdd(e);});
+</script>
+</body>
+</html>

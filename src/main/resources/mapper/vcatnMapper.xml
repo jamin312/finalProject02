@@ -1,0 +1,147 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="store.yd2team.insa.mapper.VcatnMapper">
+
+<select id="getListVcatnJohoe">
+ select 
+ a.*
+ ,b.nm "cfm_nm"
+ ,c.nm
+from tb_vcatn a
+left join tb_emp b
+on a.confmer_id = b.emp_id
+left join tb_emp c
+on a.emp_id = c.emp_id
+<where>
+<if test="confmerId == null or confmerId == ''">  AND a.emp_id = #{empId}</if>
+<if test="vcatnBegin != null">  AND a.vcatn_begin >= #{vcatnBegin}</if>
+<if test="vcatnEnd != null">  <![CDATA[ AND a.vcatn_end <= #{vcatnEnd} ]]> </if>
+<if test="vcatnTy != null and vcatnTy != ''">  AND a.vcatn_ty = #{vcatnTy}</if>
+<if test="st != null and st != ''">  AND a.st = #{st}</if>
+</where>
+</select>
+
+<insert id="empYrycRegist">
+<selectKey keyProperty="yrycId" resultType="String" order="BEFORE">
+SELECT 'yryc' || TO_CHAR(SYSDATE, 'YYMM') ||
+       LPAD(NVL(MAX(SUBSTR(yryc_id, LENGTH(yryc_id)-2, 3)), 0) + 1, 3, '0') AS yryc_id
+FROM tb_yryc
+WHERE SUBSTR(yryc_id, 5, 4) = TO_CHAR(SYSDATE, 'YYMM')
+</selectKey>
+INSERT INTO tb_yryc (
+            yryc_id,
+            vcatn_year,
+            tt_occrrnc_yryc,
+            use_yryc,
+            remndr_yryc,
+            yryc_extsh_dt,
+            crea_dt,
+            crea_by,
+            emp_id
+        ) VALUES (
+            #{yrycId},                  
+            #{vcatnYear},             
+            15,
+            0,
+            15,
+            #{yrycExtshDt}, 
+            SYSDATE,
+            'myk',
+            #{empId}
+        )
+</insert>
+
+<select id="yrycUserRemndrChk">
+SELECT NVL(
+    (
+        SELECT remndr_yryc
+        FROM tb_yryc
+        WHERE emp_id = #{empId}
+          AND vcatn_year = (
+              SELECT MAX(vcatn_year)
+              FROM tb_yryc
+              WHERE emp_id = #{empId}
+          )
+    ), 0
+) AS remndr_yryc
+FROM dual
+</select>
+
+<insert id="vcatnCreateData">
+<selectKey keyProperty="vcatnId" resultType="String" order="BEFORE">
+SELECT 'vcatn' || TO_CHAR(SYSDATE, 'YYMM') ||
+       LPAD(NVL(MAX(SUBSTR(vcatn_id, LENGTH(vcatn_id)-2, 3)), 0) + 1, 3, '0') AS vcatn_id
+FROM tb_vcatn
+WHERE SUBSTR(vcatn_id, 6, 4) = TO_CHAR(SYSDATE, 'YYMM')
+</selectKey>
+insert into tb_vcatn(
+ vcatn_id
+ ,emp_id
+ ,vcatn_ty
+ ,saly_pymnt_st
+ ,vcatn_begin
+ ,vcatn_end
+ ,vcatn_resn
+ ,st
+ ,vcatn_de
+ ,crea_by
+)VALUES(
+ #{vcatnId}
+ ,#{empId}
+ ,#{vcatnTy}
+ ,#{salyPymntSt}
+ ,#{vcatnBegin}
+ ,#{vcatnEnd}
+ ,#{vcatnResn}
+ ,'g1'
+ ,#{vcatnDe}
+ ,'myk'
+)
+</insert>
+
+<update id="vcatnUpdateYrycData">
+UPDATE tb_yryc
+SET use_yryc   = use_yryc + #{vcatnDe}
+    ,remndr_yryc = remndr_yryc - #{vcatnDe}
+    ,updt_dt = SYSDATE
+    ,updt_by = 'myk'
+WHERE emp_id = #{empId}
+  AND vcatn_year = (
+        SELECT MAX(vcatn_year)
+        FROM tb_yryc
+        WHERE emp_id = #{empId}
+    )
+    AND remndr_yryc >= #{vcatnDe}
+</update>
+
+<delete id="vcateDel">
+delete from tb_vcatn where vcatn_id = #{vcatnId}
+</delete>
+
+<update id="yrycRollback">
+UPDATE tb_yryc
+SET use_yryc   = use_yryc - #{vcatnDe}
+    ,remndr_yryc = remndr_yryc + #{vcatnDe}
+    ,updt_dt = SYSDATE
+    ,updt_by = 'myk'
+WHERE emp_id = #{empId}
+  AND vcatn_year = (
+        SELECT MAX(vcatn_year)
+        FROM tb_yryc
+        WHERE emp_id = #{empId}
+    )
+</update>
+
+<update id="vcatnCfmUpdate">
+UPDATE tb_vcatn
+SET
+ confmer_id = #{confmerId}
+ ,st = #{st}
+ ,rm = #{rm}
+ ,return_resn = #{returnResn}
+ ,updt_dt = SYSDATE
+ ,updt_by = 'myk'
+WHERE vcatn_id = #{vcatnId}
+</update>
+
+</mapper>

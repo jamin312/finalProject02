@@ -1,0 +1,972 @@
+ <!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml"
+	xmlns:th="http://www.thymeleaf.org"
+	xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+	layout:decorate="~{layout}">
+<head>
+<meta charset="UTF-8">
+
+<title>단가정책관리</title>
+
+
+<style>
+/* Grid 영역 */
+.lock-account-wrapper #accountGrid {
+	width: 100%;
+	margin-top: 4px;
+}
+
+/* 상단 헤더의 체크박스(행 헤더) 셀만 회색 */
+.tui-grid-header-area .tui-grid-cell-row-header {
+  background-color: #f5f5f5;
+}
+
+/* 데이터 행의 체크박스 셀은 흰색 유지 */
+.tui-grid-body-area .tui-grid-cell-row-header {
+  background-color: #ffffff;
+}
+
+/* 그리드 버튼 스타일 */
+.grid-btn {
+    padding: 4px 10px;
+    border: 1px solid #bbb;
+    background-color: #fff;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+}
+.grid-btn:hover {
+    background-color: #eee;
+}
+
+.modalProductName, .modalCustcomModal{
+	margin-left: 1em;
+	margin-bottom: 0.5em;
+}
+.modal-title-lg {
+  font-size: 1.6rem;   /* 기본 h5 ≈ 1.25rem */
+  font-weight: 600;
+}
+.card-header-right .modal-Btn {
+  padding: 0.7rem 1.6rem;
+  font-size: 1rem;
+  line-height: 1.5;
+  height: fit-content;
+}
+</style>
+
+</head>
+
+<body layout:fragment="content">
+	<div class="lock-account-wrapper">
+
+		<!-- 단가정책 조회 -->
+		<div class="row mb-3">
+			<div class="col-md-12">
+				<div class="card">
+
+					<!-- 카드 헤더 : 제목 + 초기화/조회 버튼 -->
+					<div class="card-header with-actions">
+						<div class="card-header-left">
+							<h5 class="card-title">단가정책 조회</h5>
+						</div>
+						<div class="card-header-right">
+							<button type="button" class="btn btn-dark" id="btnSearchInit">초기화</button>
+							<button type="button" class="btn btn-outline-dark" id="btnSearch">조회</button>
+						</div>
+					</div>
+
+					<div class="card-body">
+						<div class="row g-2">
+							<div class="col-md-3">
+								<label for="clientName" class="form-label">단가정책명</label>
+								<input id="clientName" type="text" class="form-control" >
+							</div>
+
+							<div class="col-md-3">
+							    <label class="form-label">단가정책유형</label>
+							    <select id="searchPriceType" class="form-select same-height price-type">
+    								<option value="">전체</option> <!-- 기본값 -->
+							        <!-- 여기에 JS로 공통코드 옵션이 자동 추가됨 -->
+							    </select>
+							</div>
+
+							<div class="col-md-3">
+								<label for="userName" class="form-label">적용일</label>
+								<div class="input-group date" id="applyDatePicker">
+								    <input type="text" class="form-control" id="applyDate" placeholder="날짜 선택">
+								    <span class="input-group-text" id="icon-calendar">
+								        <i class="bi bi-calendar"></i>
+								    </span>
+								</div>
+							</div>
+
+						</div>
+
+					</div> <!-- /card-body -->
+				</div>
+			</div>
+		</div>
+
+		<!-- 단가정책목록 카드 -->
+		<div class="row">
+		
+			<!-- 단가정책목록 그리드 -->
+			<div class="col-md-7 d-flex">
+    			<div class="card w-100 h-100">
+
+					<!-- 카드 헤더 : 제목 + 잠금 해제 버튼 -->
+					<div class="card-header with-actions">
+						<div class="card-header-left">
+							<h5 class="card-title">단가정책 목록</h5>
+						</div>
+						<div class="card-header-right">
+<!-- 							<button type="button" class="btn btn-outline-dark" id="custcomBtn">고객사설정</button>
+							<button type="button" class="btn btn-outline-dark" id="itemBtn">품목설정</button> -->
+							<!-- <button type="button" class="btn btn-danger" id="btnDelete">삭제</button> -->
+							<div th:replace="~{fragments/buttons :: deleteButton('MENU_SALES_001', 'btnDelete')}"></div>
+						</div>
+					</div>
+
+					<div class="card-body">
+						<div class="priceGridWrap">
+							<div id="priceGrid"></div>
+						</div>
+					</div>
+				</div>
+			</div>
+			
+			<!-- 단가정책 등록폼 -->
+			<div class="col-md-5 d-flex">
+    			<div class="card w-100 h-100">
+
+					<!-- 카드 헤더 : 제목 + 초기화/조회 버튼 -->
+					<div class="card-header with-actions">
+						<div class="card-header-left">
+							<h5 class="card-title">단가정책 등록</h5>
+						</div>
+						<div class="card-header-right">
+							<button type="button" class="btn btn-dark" id="btnInsertInit">초기화</button>
+							<!-- <button type="button" class="btn btn-outline-dark" id="btnInsertSave">저장</button> -->
+							<div th:replace="~{fragments/buttons :: saveButton('MENU_SALES_001', 'btnInsertSave')}"></div>
+						</div>
+					</div>
+
+					<!-- 정책등록폼 -->
+					<div class="card-body d-flex flex-column justify-content-between">
+						  <div class="row g-3">
+							    <!-- 위쪽 영역 -->
+							    <div class="col-12">
+							      <label class="form-label">단가정책명</label>
+							      <input id="priceName" type="text" class="form-control">
+							    </div>
+							
+							    <!-- 중간 : 유형 / 할인율 / 적용일 -->
+							    <div class="col-md-6">
+							      <div class="mb-3">
+							        <label class="form-label">단가정책유형</label>
+								    <select id="formPriceType" class="form-select same-height price-type">
+	   									<option value="">전체</option> <!-- 기본값 -->
+								        <!-- 여기에 JS로 공통코드 옵션이 자동 추가됨 -->
+								    </select>
+							      </div>
+							    </div>
+							    
+							    <div class="col-md-6">
+							      <div class="mb-3">
+							        <label class="form-label">할인율(%)</label>
+							        <input id="percent" type="text" class="form-control same-height">
+							      </div>
+							    </div>
+							
+							    <div class="col-12">
+							      <label>정책적용일</label>
+		                            <div class="js-date-range d-flex align-items-center">
+		                                <!-- 시작일 -->
+										  <div class="input-group date">
+										    <input type="text" class="form-control datepicker js-date-range-start" placeholder="적용시작일">
+										    <span class="input-group-text js-date-range-icon-start">
+										      <i class="bi bi-calendar"></i>
+										    </span>
+										  </div>
+										
+										  <span class="mx-1 fw-bold fs-5">~</span>
+										
+										  <!-- 종료일 -->
+										  <div class="input-group date ms-2">
+										    <input type="text" class="form-control datepicker js-date-range-end" placeholder="적용종료일">
+										    <span class="input-group-text js-date-range-icon-end">
+										      <i class="bi bi-calendar"></i>
+										    </span>
+										  </div>
+		                            </div>
+							
+							    <!-- 아래 : 비고 (아래쪽에 붙도록) -->
+							    <div class="col-12 mt-auto">
+							      <label class="form-label">비고</label>
+							      <input id="rm" type="text" class="form-control">
+							    </div>
+							    
+							    <input id="priceId" type="hidden">
+							  </div>
+						</div> <!-- 정책등록폼 end -->
+						
+					</div>
+				</div>
+	
+			</div><!-- 단가정책 등록폼 .End -->
+		</div> <!-- 단가정책목록카드 .End -->
+	</div> <!-- lock-account-wrapper .End -->
+
+	
+<div th:replace="business/modal/custcomModal :: custcomModal"></div>
+<div th:replace="business/modal/productModal :: productModal"></div>
+
+<script>
+	// 0. 단가정책유형 공통코드 매핑
+	const priceTypeMap = {}; // { p1: '고객사별', p2: '품목별' }
+
+	
+	// 공통코드(단가정책유형) 로딩 + select 채우기 + map 만들기
+	function loadPriceTypeCodes() {
+	    fetch('/price/type-codes')
+	        .then(res => res.json())
+	        .then(data => {
+	            const selects = document.querySelectorAll('.price-type');
+	
+	            // select 옵션 채우기
+	            selects.forEach(select => {
+	                data.forEach(item => {
+	                    const opt = document.createElement('option');
+	                    opt.value = item.codeId;       // p1, p2
+	                    opt.textContent = item.codeNm; // 고객사별, 품목별
+	                    select.appendChild(opt);
+	                });
+	            });
+	
+	            // map 채우기 (그리드 formatter에서 사용)
+	            data.forEach(item => {
+	                priceTypeMap[item.codeId] = item.codeNm;
+	            });
+	
+	            // 그리드가 이미 만들어졌다면 다시 그리기
+	            if (window.priceGrid) {
+	                window.priceGrid.refreshLayout();
+	            }
+	        })
+	        .catch(err => console.error('단가정책유형 코드 조회 오류:', err));
+	}
+	
+	// DOM 준비되면 공통코드부터 로딩
+	window.addEventListener('DOMContentLoaded', loadPriceTypeCodes);
+
+
+    // 2. 데이터
+    const priceData = []; // 2. 끝
+    
+    
+    // 2-1. 검색조건
+    const searchForm = {
+    		clientName: document.getElementById('clientName'),
+    	    searchPriceType: document.getElementById('searchPriceType'),
+    	    applyDate: document.getElementById('applyDate')
+	};
+
+    
+    // 3. Grid 공통 옵션
+    const priceGridOptions = {
+        bodyHeight: 400,
+        scrollX: true,
+        scrollY: true,  // 세로
+        rowHeaders: ['checkbox'],     // 좌측 체크박스
+        columnOptions: {
+            minWidth: 80,
+            resizable: true
+        }
+    }; // 3. 끝
+    
+ 
+    
+    // 4. 단가정책 목록 Grid 생성
+    const priceGrid = new tui.Grid({
+        el: document.getElementById('priceGrid'),
+        data: priceData,
+        ...priceGridOptions,
+        columns: [
+        	{ header: 'ID', name: 'priceId', hidden: true },
+            { header: '단가정책명', name: 'priceName', width: 180 },
+            { header: '유형', name: 'priceType', width: 80, align: 'center',
+            	formatter: ({ value }) => {
+                    return priceTypeMap[value] || value || '';
+                    // priceTypeMap에 있으면 한글명, 없으면 원래 값(p1/p2) 표시
+                }
+            },
+            {
+           	  header: '고객사선택',
+           	  name: 'custcomSelect',
+           	  width: 120,
+           	  align: 'center',
+           	  formatter: ({ row }) => {
+           	    // row.type 이 p1일 때만 활성 버튼
+           	    const disabled = row.priceType === 'p1' ? '' : 'disabled style="opacity:0.5;cursor:not-allowed;"';
+           	    return `<button class="grid-btn open-client-modal-btn" ${disabled}>고객사선택</button>`;
+           	  }
+           	},
+           	{
+           	  header: '품목선택',
+           	  name: 'productSelect',
+           	  width: 120,
+           	  align: 'center',
+           	  formatter: ({ row }) => {
+           	    // row.type 이 p2일 때만 활성 버튼
+           	    const disabled = row.priceType === 'p2' ? '' : 'disabled style="opacity:0.5;cursor:not-allowed;"';
+           	    return `<button class="grid-btn open-product-modal-btn" ${disabled}>품목선택</button>`;
+           	  }
+           	},
+            { header: '할인율(%)', name: 'percent', width: 80, align: 'center' },
+            { header: '적용시작일', name: 'beginDt', width: 120, align: 'center' },
+            { header: '적용종료일', name: 'endDt', width: 120, align: 'center' },
+            { header: '비고', name: 'rm', width: 'auto', minWidth: 250 },
+        ]
+    }); // 4. 끝
+    
+    // 전역에서 접근할 수 있도록 window에 올려두기 (위에서 window.priceGrid 사용)
+    window.priceGrid = priceGrid;
+    
+	// 5. 폼 요소 캐싱
+	const priceForm = {
+		priceId: document.getElementById('priceId'),
+		priceName: document.getElementById('priceName'),
+		priceType: document.getElementById('formPriceType'),
+		percent: document.getElementById('percent'),
+		beginDt: document.querySelector('.js-date-range-start'),
+		endDt: document.querySelector('.js-date-range-end'),
+		rm: document.getElementById('rm')
+	
+	}; // 5. 끝
+
+    // 6. 행 클릭 시 폼에 데이터 세팅
+   	priceGrid.on('click', ev => {
+    		
+      // 버튼(고객사설정/품목설정) 클릭은 무시
+      if (ev.columnName === 'clientSetting' || ev.columnName === 'itemSetting') {
+        return;
+      }
+
+      const rowKey = ev.rowKey;
+      if (rowKey == null) return;
+
+      const row = priceGrid.getRow(rowKey);
+      if (!row) return;
+
+      // Grid 데이터 → 폼 매핑
+      priceForm.priceId.value = row.priceId || '';
+      priceForm.priceName.value = row.priceName || '';
+      priceForm.percent.value   = row.percent || '';
+
+      // select 박스는 value 로 지정
+      if (row.priceType) {
+        priceForm.priceType.value = row.priceType;
+      } else {
+        priceForm.priceType.value = ''; // 필요시 기본값
+      }
+
+      priceForm.beginDt.value = row.beginDt || '';
+      priceForm.endDt.value   = row.endDt || '';
+      priceForm.rm.value      = row.rm || '';
+      
+      console.log('priceForm : ' + priceForm.priceType.value);
+    }); // 6. 끝
+    
+    
+    // 7. 모달 호출 버튼
+    
+    // 7-1 고객사 선택 모달
+    const modal = document.getElementById("custcomModal");
+	const back  = document.getElementById("custcomBackdrop");
+	
+	/**
+	 * priceId 를 받아서
+	 *   1) 모달 열고
+	 *   2) 고객사 리스트 조회 후 그리드에 뿌리고
+	 *   3) 해당 priceId 로 저장된 고객사 목록을 조회해서 체크
+	 */
+	async function openCustcomModal(priceId) {
+	  // 모달 표시
+	  modal.classList.add("show");
+	  modal.style.display = "block";
+	  back.style.display = "block";
+	
+	  // 그리드 없으면 생성, 있으면 레이아웃만 리프레시
+	  if (!window.custcomGrid) {
+	    loadCustcomGrid();
+	  } else {
+	    window.custcomGrid.refreshLayout();
+	  }
+	
+	  try {
+	    // 1) 모달 열 때 기본 고객사 목록 조회 (검색어 유지하고 싶으면 input 값 사용)
+	    const keyword = document.getElementById('custcomName').value || '';
+	    const custData = await fetchCustcomList(keyword);
+	    loadCustcomGrid(custData);
+	
+	    // 2) priceId 가 있으면 저장된 고객사 detail 조회 후 자동 체크
+	    if (priceId) {
+	      const res = await axios.get('/price/policy/detail', {
+	        params: { priceId }
+	      });
+	
+	      // 컨트롤러에서 { result, detailList } 구조로 보낸다고 가정
+	      if (res.data.result === 'success') {
+	        const detailList = res.data.detailList || [];
+	        const savedIds = detailList.map(d => d.custcomId);
+	        setCheckedCustomers(savedIds);
+	      } else {
+	        console.warn(res.data.message || '단가정책 고객사 조회 실패');
+	      }
+	    }
+	
+	  } catch (err) {
+	    console.error('고객사/단가정책 조회 오류:', err);
+	  }
+	}
+	
+	function closeCustcomModal() {
+	  modal.classList.remove("show");
+	  modal.style.display = "none";
+	  back.style.display = "none";
+	}
+	
+	// 바깥 클릭 시 닫기
+	modal.addEventListener("click", (event) => {
+	  if (!event.target.closest(".modal-content")) {
+	    closeCustcomModal();
+	  }
+	});
+	
+	document.addEventListener('click', (e) => {
+		  if (e.target.classList.contains('open-client-modal-btn')) {
+
+		    const cell = priceGrid.getFocusedCell();
+		    const row = cell ? priceGrid.getRow(cell.rowKey) : null;
+		    if (!row) return;
+
+		    // 유형이 p1일 때만 오픈 (고객사별)
+		    if (row.priceType !== 'p1') return;
+
+		    // 🔹 이 단가정책의 priceId 를 모달에 넘겨줌
+		    const priceId = row.priceId;   // 헤더 그리드에 priceId 컬럼이 있어야 함
+		    openCustcomModal(priceId);
+		  }
+		});
+	
+	
+	
+	// ================ 상품모달
+	// 체크 처리
+	function setCheckedProducts(savedList = []) {
+	  if (!window.productGrid) return;
+
+	  const savedIds = savedList.map(d =>
+	    d.productId || d.PRODUCTID || d.productid
+	  );
+
+	  const rows = window.productGrid.getData();
+
+	  rows.forEach(row => {
+	    if (savedIds.includes(row.productId)) {
+	      window.productGrid.check(row.rowKey);
+	    }
+	  });
+	}
+
+	// 상품모달
+	const productModal = document.getElementById("productModal");
+	const productBack  = document.getElementById("productBackdrop");
+
+	async function openProductModal(priceId) {
+
+	  productModal.classList.add("show");
+	  productModal.style.display = "block";
+	  productBack.style.display = "block";
+
+	  if (!window.productGrid) {
+	    loadProductGrid();
+	  } else {
+	    window.productGrid.refreshLayout();
+	  }
+
+	  try {
+	    const keyword = document.getElementById('productName').value || '';
+
+	    const productData = await fetch('/price/product/list', {
+	      method: 'POST',
+	      headers: { 'Content-Type': 'application/json' },
+	      body: JSON.stringify({ productName: keyword })
+	    }).then(res => res.json());
+
+	    loadProductGrid(productData);
+
+	    if (priceId) {
+	      const savedList = await fetchSavedProducts(priceId);
+	      setCheckedProducts(savedList);
+	    }
+
+	  } catch (err) {
+	    console.error("상품 모달 로딩 오류:", err);
+	  }
+	}
+
+	function closeProductModal() {
+	  productModal.classList.remove("show");
+	  productModal.style.display = "none";
+	  productBack.style.display = "none";
+	}
+
+	productModal.addEventListener("click", (event) => {
+	  if (!event.target.closest(".modal-content")) {
+	    closeProductModal();
+	  }
+	});
+
+	// 버튼 클릭 이벤트 (정상 동작 버전)
+	document.addEventListener('click', (e) => {
+
+	  if (!e.target.classList.contains('open-product-modal-btn')) return;
+
+	  const cell = priceGrid.getFocusedCell();
+	  const row = cell ? priceGrid.getRow(cell.rowKey) : null;
+	  if (!row) return;
+
+	  if (row.priceType !== 'p2') return;
+
+	  openProductModal(row.priceId);
+	}); // end 상품모달
+
+	 
+    
+    // 8. 초기화버튼 이벤트
+    const $btnSearchInit = document.getElementById('btnSearchInit');
+    const $btnInsertInit = document.getElementById('btnInsertInit');
+    
+    if ($btnSearchInit) {
+        $btnSearchInit.addEventListener('click', function () {
+            Object.values(searchForm).forEach(field => field.value = '');
+        });
+    }
+    
+    if ($btnInsertInit) {
+        $btnInsertInit.addEventListener('click', function () {
+            Object.values(priceForm).forEach(field => field.value = '');
+        });
+    } 
+	    
+    
+ 	// 9. 조회버튼 이벤트
+    const $btnSearch = document.getElementById('btnSearch');
+
+    if ($btnSearch) {
+        $btnSearch.addEventListener('click', function () {
+
+            const searchName = searchForm.clientName.value.trim();          // 단가정책명
+            const searchType = searchForm.searchPriceType.value;            // 유형
+            const applyDate = searchForm.applyDate.value;                   // 적용일
+            
+            console.log("조회조건:", searchName, searchType, applyDate);
+
+            axios.post('/price/list', {
+                searchPriceName: searchName,
+                searchType: searchType,
+                searchApplcDt: applyDate
+            })
+            .then(res => {
+                console.log("조회결과:", res.data);
+
+                // 결과를 그리드에 반영
+                priceGrid.resetData(res.data);
+            })
+            .catch(err => {
+                console.error("조회 오류:", err);
+            });
+
+        });
+    }
+	    
+	// 10. 저장버튼 이벤트
+	console.log(priceForm);
+	
+	document.getElementById('btnInsertSave').addEventListener('click', () => {
+
+		const payload = {
+		  priceId: priceForm.priceId.value,
+		  priceName: priceForm.priceName.value,
+		  priceType: priceForm.priceType.value,
+		  percent: priceForm.percent.value,
+		  beginDt: priceForm.beginDt.value,
+		  endDt: priceForm.endDt.value,
+		  rm: priceForm.rm.value
+		};
+		
+		axios.post('/price/save', payload)
+		  .then(res => {
+		    if (res.data.result === 'success') {
+		      alert('저장 완료');
+		
+		      // 폼 초기화
+		      document.getElementById('btnInsertInit').click();
+		
+		      // 그리드 새로고침
+		      reloadPriceGrid();
+		    } else {
+		      alert(res.data.message || '저장 실패');
+		    }
+		  })
+		  .catch(err => {
+		    console.error('저장 오류: ', err);
+		    alert('저장 중 오류 발생');
+		  });
+	});
+	
+	function reloadPriceGrid() {
+		axios.post('/price/list')     // 현재 컨트롤러는 POST만 매핑됨
+		  .then(res => {
+		    console.log("조회 데이터:", res.data);
+		    priceGrid.resetData(res.data);   // 그리드 데이터 교체
+		  })
+		  .catch(err => {
+		    console.error('그리드 재조회 오류:', err);
+		  });
+	}
+	
+	
+	
+	// 11. 삭제버튼 이벤트
+	document.getElementById("btnDelete").addEventListener("click", async () => {
+
+	    const selectedRows = priceGrid.getCheckedRows();   // 다건 선택
+	    console.log("선택된 ROW:", selectedRows);
+	
+	    if (!selectedRows || selectedRows.length === 0) {
+	        alert("삭제할 데이터를 선택하세요.");
+	        return;
+	    }
+	
+	    // 선택한 데이터 count 보여주기
+	    if (!confirm(`${selectedRows.length}건을 삭제하시겠습니까?`)) {
+	        return;
+	    }
+	
+	    // priceId 배열 만들기
+	    const priceIdList = selectedRows.map(row => row.priceId);
+	
+	    const payload = {
+	        priceIdList: priceIdList
+	    };
+	
+	    try {
+	        const response = await fetch("/price/delete", {
+	            method: "POST",
+	            headers: { "Content-Type": "application/json" },
+	            body: JSON.stringify(payload)
+	        });
+	
+	        const data = await response.json();
+	        console.log("삭제 결과:", data);
+	
+	        if (data.result === "success") {
+	            alert("삭제가 완료되었습니다.");
+	
+	            reloadPriceGrid();   // 재조회
+	            clearForm();         // 폼 초기화
+	        } else {
+	            alert("삭제 실패: " + (data.message || '알 수 없는 오류'));
+	        }
+	    } catch (err) {
+	        console.error("삭제 요청 오류:", err);
+	        alert("삭제 중 오류가 발생했습니다.");
+	    }
+	});
+	
+	
+	// 12. 그리드 새로고침 함수
+	async function reloadPriceGrid() {
+	    const response = await fetch('/price/list', {
+	        method: 'POST',
+	        headers: { 'Content-Type': 'application/json' },
+	        body: JSON.stringify({})
+	    });
+	
+	    const data = await response.json();
+	    priceGrid.resetData(data);
+	}
+	
+	
+	// clearForm 함수 추가
+	function clearForm() {
+	    document.getElementById('priceId').value = "";
+	    document.getElementById('priceName').value = "";
+	    document.getElementById('percent').value = "";
+	    document.getElementById('rm').value = "";
+	    document.querySelector('.js-date-range-start').value = "";
+	    document.querySelector('.js-date-range-end').value = "";
+	    document.getElementById('formPriceType').value = "";
+	}
+	
+// ---------------------------- 고객사 모달 스크립트
+	// 1. 그리드 생성
+	window.custcomGrid = null;
+	
+	function loadCustcomGrid(data = []) {
+	  if (window.custcomGrid) {
+	    window.custcomGrid.resetData(data);
+	    return;
+	  }
+	
+	  window.custcomGrid = new tui.Grid({
+	    el: document.getElementById('custcomGrid'),
+	    scrollX: false,
+	    scrollY: true,
+	    bodyHeight: 350,
+	    rowHeaders: ['checkbox'],
+	    columns: [
+	      { header: '고객사ID', name: 'custcomId', hidden: true },
+	      { header: '고객사명', name: 'custcomName', width: 200 },
+	      { header: '담당자', name: 'psch', width: 120 },
+	      { header: '연락처', name: 'pschTel', width: 140 },
+	      { header: '주소', name: 'bizAddr', width: 'auto', minWidth: 250 }
+	    ]
+	  });
+	}
+	
+	 //  고객사 목록 조회를 함수로 분리 모달 오픈 시에도 재사용
+	function fetchCustcomList(keyword = '') {
+	  return fetch('/custcom/list', {
+	    method: 'POST',
+	    headers: { 'Content-Type': 'application/json' },
+	    body: JSON.stringify({ custcomName: keyword })
+	  }).then(res => res.json());
+	}
+	
+	// 2. 조회버튼 고객사 조회
+	document.getElementById('searchCustcomBtn').addEventListener('click', () => {
+	  const keyword = document.getElementById('custcomName').value;
+	
+	  fetchCustcomList(keyword)
+	    .then(data => loadCustcomGrid(data))
+	    .catch(err => console.error('고객사 조회 오류:', err));
+	});
+	
+	 // 저장된 고객사 ID 들을 받아서 그리드에서 해당 행의 체크박스를 체크해주는 함수
+	function setCheckedCustomers(savedIds = []) {
+	  if (!window.custcomGrid) return;
+
+	  const rows = window.custcomGrid.getData();
+
+	  rows.forEach(row => {
+	    // tui.Grid 에서는 rowKey 를 써서 체크하는 게 안전
+	    if (savedIds.includes(row.custcomId)) {
+	      window.custcomGrid.check(row.rowKey);
+	    }
+	  });
+	}
+	
+	 
+	// 선택한 고객사 정보 가져오는 함수
+	function getSelectedCustcomList() {
+	  if (!window.custcomGrid) return [];
+	  const checked = window.custcomGrid.getCheckedRows();
+	
+	  return checked.map(row => ({
+	    custcomId: row.custcomId,
+	    custcomName: row.custcomName
+	  }));
+	}
+	
+	
+	// 고객사 모달 저장버튼 이벤트
+	document.getElementById('insertCustcomBtn').addEventListener('click', () => {
+	
+	  const selected = getSelectedCustcomList();
+	
+	  if (selected.length === 0) {
+	    alert('고객사를 1개 이상 선택하세요.');
+	    return;
+	  }
+	
+	  const payload = {
+	    priceId: priceForm.priceId.value,
+	    priceName: priceForm.priceName.value,
+	    priceType: priceForm.priceType.value,
+	    percent: priceForm.percent.value,
+	    beginDt: priceForm.beginDt.value,
+	    endDt: priceForm.endDt.value,
+	    rm: priceForm.rm.value,
+	
+	    detailList: selected
+	  };
+	
+	  axios.post('/price/policy/save', payload)
+	    .then(res => {
+	      if (res.data.result === 'success') {
+	        alert('저장 완료');
+	        document.getElementById('btnInsertInit').click();
+	        closeCustcomModal();
+	        reloadPriceGrid();
+	      } else {
+	        alert(res.data.message || '저장 실패');
+	      }
+	    })
+	    .catch(err => {
+	      console.error('저장 오류: ', err);
+	      alert('저장 중 오류 발생');
+	    });
+	});
+	
+	
+	
+// ---------------------------- 상품 모달 스크립트
+	//1. 그리드 생성
+	window.productGrid = null;
+	
+	function loadProductGrid(data = []) {
+	  if (window.productGrid) {
+	    window.productGrid.resetData(data);
+	    return;
+	  }
+	
+	  window.productGrid = new tui.Grid({
+	    el: document.getElementById('productGrid'),
+	    scrollX: false,
+	    scrollY: true,
+	    bodyHeight: 350,
+	    rowHeaders: ['checkbox'],
+	    columns: [
+	      { header: '상품ID', name: 'productId', hidden: true },
+	      { header: '상품명', name: 'productName', width: 300 },
+	      { header: '단위', name: 'unit', width: 152, align: 'center' },
+	      { header: '판매단가', name: 'basisSaleAmt', width: 240, align: 'right' },
+	    ]
+	  });
+	}
+
+	// 2. 조회버튼 상품 조회
+	async function fetchSavedProducts(priceId) {
+	  const res = await axios.get('/price/policy/product', {
+	    params: { priceId }
+	  });
+	
+	  if (res.data.result === 'success') {
+	    return res.data.detailList; 
+	  } else {
+	    console.warn("저장된 상품 조회 실패:", res.data.message);
+	    return [];
+	  }
+	}
+	
+	document.getElementById('searchProductBtn').addEventListener('click', () => {
+	  const keyword = document.getElementById('productName').value;
+
+	  fetch('/price/product/list', {     // URL 반드시 이렇게!
+	    method: 'POST',
+	    headers: { 'Content-Type': 'application/json' },
+	    body: JSON.stringify({ productName: keyword })
+	  })
+	  .then(res => res.json())
+	  .then(data => {
+
+	    if (!Array.isArray(data)) {
+	      console.error("서버 응답이 배열이 아님:", data);
+	      return;
+	    }
+
+	    loadProductGrid(data);
+	  })
+	  .catch(err => console.error('상품 조회 오류:', err));
+	});
+
+	// 3. 상품 모달 저장버튼
+	document.getElementById('insertProductBtn').addEventListener('click', () => {
+	
+	  const selected = window.productGrid.getCheckedRows();
+	
+	  if (selected.length === 0) {
+	    alert("상품을 1개 이상 선택하세요.");
+	    return;
+	  }
+	
+	  const payload = {
+	    priceId: priceForm.priceId.value,
+	    priceType: priceForm.priceType.value,
+	    percent: priceForm.percent.value,
+	    beginDt: priceForm.beginDt.value,
+	    endDt: priceForm.endDt.value,
+	    rm: priceForm.rm.value,
+	
+	    detailList: selected   // 중요
+	  };
+	
+	  axios.post('/price/policy/saveProduct', payload)
+	    .then(res => {
+	      if (res.data.result === 'success') {
+	        alert('상품 저장 완료');
+	        closeProductModal();
+	        reloadPriceGrid();
+	      } else {
+	        alert(res.data.message || '상품 저장 실패');
+	      }
+	    })
+	    .catch(err => {
+	      console.error('상품 저장 오류:', err);
+	      alert('저장 중 오류 발생');
+	    });
+	});
+	
+	// 할인율 숫자만 입력
+	const percentInput = document.getElementById('percent');
+
+	// 숫자만 남기는 함수
+	function onlyDigits(v) {
+	  return v.replace(/[^\d]/g, '');
+	}
+
+	// 입력 중: 숫자만 허용
+	percentInput.addEventListener('input', (e) => {
+	  let v = onlyDigits(e.target.value);
+
+	  // 0~100 제한
+	  if (v !== '') {
+	    const n = Number(v);
+	    if (n > 100) v = '100';
+	  }
+
+	  e.target.value = v;
+	});
+
+	// 포커스 들어올 때: 전체선택 (UX 핵심)
+	percentInput.addEventListener('focus', (e) => {
+	  e.target.select();
+	});
+
+	// 포커스 나갈 때: 값 보정
+	percentInput.addEventListener('blur', (e) => {
+	  let v = e.target.value;
+
+	  if (v === '') return; // 비어있으면 그대로
+
+	  let n = Number(v);
+	  if (Number.isNaN(n)) {
+	    e.target.value = '';
+	    return;
+	  }
+
+	  if (n < 0) n = 0;
+	  if (n > 100) n = 100;
+
+	  e.target.value = String(n);
+	});
+	
+</script>
+<script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+
+</body>
+</html>
